@@ -1,5 +1,5 @@
 import pg from 'pg'
-import { readFile, readdir } from 'fs/promises'
+import { readFile } from 'fs/promises'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
