@@ -1,4 +1,3 @@
--- Up
 CREATE TABLE prompt_versions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -9,6 +8,3 @@ CREATE TABLE prompt_versions (
   created_at timestamptz DEFAULT now(),
   UNIQUE (name, version)
 );
-
--- Down
-DROP TABLE prompt_versions;

@@ -9,7 +9,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,json}\"",
     "typecheck": "tsc --noEmit",
     "migrate": "node-pg-migrate up --database-url-var NEON_DATABASE_URL",
-    "migrate:rollback": "node-pg-migrate down --database-url-var NEON_DATABASE_URL",
+    "migrate:rollback": "node scripts/rollback.mjs",
     "migrate:create": "node-pg-migrate create"
   },
   "dependencies": {
