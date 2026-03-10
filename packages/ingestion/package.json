@@ -7,10 +7,17 @@
     "deploy": "wrangler deploy",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx,js,json}\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:local": "tsx --env-file=../../.env src/test-local.ts"
+  },
+  "dependencies": {
+    "@astrodigest/shared": "*",
+    "@neondatabase/serverless": "^1.0.2",
+    "kysely": "^0.28.11"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260310.1",
+    "tsx": "^4.21.0",
     "wrangler": "^4.71.0"
   }
 }
