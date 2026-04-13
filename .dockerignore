@@ -1,0 +1,22 @@
+# Dependencies — reinstalled inside the image
+**/node_modules
+
+# Compiled output — rebuilt inside the image
+**/dist
+
+# Git history — not needed in image
+.git
+.gitignore
+
+# Local env files — secrets injected by Railway at runtime
+.env
+.env.*
+!.env.example
+
+# Mobile app — not relevant for API image
+apps/mobile
+
+# Editor and OS noise
+.DS_Store
+*.log
+.turbo
