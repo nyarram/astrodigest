@@ -1,0 +1,10 @@
+{
+  "$schema": "https://railway.app/railway-schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "echo 'Mobile app is built via EAS Build, not Railway'"
+  },
+  "deploy": {
+    "startCommand": "echo 'Nothing to serve' && exit 0"
+  }
+}
