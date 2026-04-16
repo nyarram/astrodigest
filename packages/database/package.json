@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx,js,json}\"",
     "typecheck": "tsc --noEmit",
-    "migrate": "node-pg-migrate up --database-url-var NEON_DATABASE_URL",
+    "migrate": "node scripts/migrate.mjs",
     "migrate:rollback": "node scripts/rollback.mjs",
     "migrate:create": "node-pg-migrate create",
     "seed": "tsx src/seed.ts"
