@@ -3,8 +3,9 @@
 ## What This Is
 
 Weekly astronomy digest app. An AI-powered pipeline ingests papers and news
-from arXiv, NASA, ESO, ALMA, and SpaceX, summarizes them with Claude, and
-delivers a curated weekly digest via push notification to a React Native app.
+from arXiv, NASA APOD, ESO, ALMA, and NASASpaceflight, summarizes them with
+Groq (llama-3.3-70b-versatile), and delivers a curated weekly digest via push
+notification to a React Native app.
 
 ## Monorepo Structure
 
@@ -23,7 +24,7 @@ delivers a curated weekly digest via push notification to a React Native app.
 - API: Fastify (not Express)
 - Auth: Clerk
 - Mobile: React Native + Expo
-- AI: Anthropic API direct — claude-haiku-4-5 for quick hits, claude-sonnet-4-6 for big story
+- AI: Groq API (llama-3.3-70b-versatile) for all summarization — free tier, weekly batch
 - Ingestion: Cloudflare Workers on a daily cron
 - Hosting: Railway for API and workers, Cloudflare Workers for ingestion
 
@@ -40,7 +41,7 @@ delivers a curated weekly digest via push notification to a React Native app.
 ## Dev Commands
 
 - npm run dev → start API and workers locally
-- npm run migrate → run pending migrations against Neon
+- npm run migrate --workspace=@astrodigest/database → run pending migrations against Neon
 - npm run migrate:rollback → rollback last migration
 - npm run lint → ESLint across all packages via Turbo
 - npm run typecheck → TypeScript check across all packages via Turbo
@@ -49,5 +50,5 @@ delivers a curated weekly digest via push notification to a React Native app.
 ## Environment Variables
 
 See .env.example in root for all required keys.
-Required for Phase 1+2: NEON_DATABASE_URL, UPSTASH_REDIS_URL,
-UPSTASH_REDIS_TOKEN, ANTHROPIC_API_KEY, NASA_API_KEY
+Required: NEON_DATABASE_URL, UPSTASH_REDIS_URL, UPSTASH_REDIS_TOKEN,
+GROQ_API_KEY, NASA_API_KEY
