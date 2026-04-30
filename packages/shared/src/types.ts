@@ -69,15 +69,15 @@ export interface SpaceNewsItem {
   sourceUrl: string
 }
 
+export type DigestStatus = 'draft' | 'ready' | 'published' | 'delivered'
+
 export interface DigestSections {
   bigStory: BigStory
   quickHits: QuickHit[]
-  imageOfWeek: ImageOfWeek
-  paperDeepDive: PaperDeepDive
+  imageOfWeek: ImageOfWeek | null
+  paperDeepDive: PaperDeepDive | null
   spaceNews?: SpaceNewsItem[]
 }
-
-export type DigestStatus = 'draft' | 'published' | 'delivered'
 
 export interface Digest {
   id: string

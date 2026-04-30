@@ -206,55 +206,63 @@ export function DigestBody({
       <Divider />
 
       {/* Image of the Week */}
-      <section className="mb-12">
-        <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Image of the Week
-        </h2>
-        <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-muted">
-          <Image
-            src={imageOfWeek.imageUrl}
-            alt={imageOfWeek.title}
-            fill
-            sizes="(max-width: 768px) 100vw, 768px"
-            className="object-cover"
-            // unoptimized until remotePatterns configured in next.config.ts for NASA/ESO domains
-            unoptimized
-          />
-        </div>
-        <div className="mt-3">
-          <p className="font-medium text-foreground">{imageOfWeek.title}</p>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            {imageOfWeek.description}
-          </p>
-          {imageOfWeek.credit !== undefined && (
-            <p className="mt-1 text-xs text-muted-foreground/60">Credit: {imageOfWeek.credit}</p>
-          )}
-        </div>
-      </section>
-
-      <Divider />
+      {imageOfWeek !== null && (
+        <>
+          <section className="mb-12">
+            <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              Image of the Week
+            </h2>
+            <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-muted">
+              <Image
+                src={imageOfWeek.imageUrl}
+                alt={imageOfWeek.title}
+                fill
+                sizes="(max-width: 768px) 100vw, 768px"
+                className="object-cover"
+                unoptimized
+              />
+            </div>
+            <div className="mt-3">
+              <p className="font-medium text-foreground">{imageOfWeek.title}</p>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                {imageOfWeek.description}
+              </p>
+              {imageOfWeek.credit !== undefined && (
+                <p className="mt-1 text-xs text-muted-foreground/60">
+                  Credit: {imageOfWeek.credit}
+                </p>
+              )}
+            </div>
+          </section>
+          <Divider />
+        </>
+      )}
 
       {/* Paper Deep Dive */}
-      <section className="mb-12">
-        <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Paper Deep Dive
-        </h2>
-        <div className="rounded-xl border border-accent/30 bg-surface p-5">
-          <p className="mb-3 font-mono text-xs font-semibold uppercase tracking-wider text-accent">
-            arXiv
-          </p>
-          <h3 className="mb-2 text-lg font-semibold leading-snug text-foreground">
-            {paperDeepDive.title}
-          </h3>
-          <p className="mb-3 font-mono text-xs text-muted-foreground">
-            {paperDeepDive.authors.join(', ')}
-          </p>
-          <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
-            {paperDeepDive.summary}
-          </p>
-          <ExternalLinkAnchor href={paperDeepDive.arxivUrl} label="View on arXiv" />
-        </div>
-      </section>
+      {paperDeepDive !== null && (
+        <section className="mb-12">
+          <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            Paper Deep Dive
+          </h2>
+          <div className="rounded-xl border border-accent/30 bg-surface p-5">
+            <p className="mb-3 font-mono text-xs font-semibold uppercase tracking-wider text-accent">
+              arXiv
+            </p>
+            <h3 className="mb-2 text-lg font-semibold leading-snug text-foreground">
+              {paperDeepDive.title}
+            </h3>
+            {paperDeepDive.authors.length > 0 && (
+              <p className="mb-3 font-mono text-xs text-muted-foreground">
+                {paperDeepDive.authors.join(', ')}
+              </p>
+            )}
+            <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+              {paperDeepDive.summary}
+            </p>
+            <ExternalLinkAnchor href={paperDeepDive.arxivUrl} label="View on arXiv" />
+          </div>
+        </section>
+      )}
 
       {/* Space News — only rendered when populated */}
       {spaceNews !== undefined && spaceNews.length > 0 && (

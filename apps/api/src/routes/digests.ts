@@ -3,91 +3,147 @@ import { db } from '../lib/db.js'
 import { redis } from '../lib/redis.js'
 
 // ---------------------------------------------------------------------------
-// Response types
+// Internal DB row type after join
 // ---------------------------------------------------------------------------
 
-interface ContentItem {
+interface ContentRow {
   id: string
   summary_short: string | null
   summary_long: string | null
+  abstract: string | null
   title: string | null
   url: string | null
   image_url: string | null
   source: string | null
-  published_at: string | null
+  published_at: Date | null
 }
 
-interface DigestDetail {
-  id: string
-  week_of: string
-  status: string
-  delivered_at: string | null
-  big_story: ContentItem | null
-  image_of_week: ContentItem | null
-  paper_dive: ContentItem | null
-  quick_hits: ContentItem[]
+// ---------------------------------------------------------------------------
+// API response types (camelCase, matching @astrodigest/shared Digest)
+// ---------------------------------------------------------------------------
+
+interface StoryItem {
+  title: string
+  summary: string
+  sourceUrl: string
+  source: string
+  imageUrl: string | null
 }
 
-interface DigestSummary {
+interface PaperItem {
+  title: string
+  authors: string[]
+  abstract: string
+  summary: string
+  arxivUrl: string
+}
+
+interface ImageItem {
+  title: string
+  description: string
+  imageUrl: string
+  credit: null
+}
+
+interface DigestSectionsResponse {
+  bigStory: StoryItem
+  quickHits: StoryItem[]
+  imageOfWeek: ImageItem | null
+  paperDeepDive: PaperItem | null
+  spaceNews: []
+}
+
+interface DigestDetailResponse {
   id: string
-  week_of: string
+  weekStart: string
+  weekEnd: string
   status: string
-  delivered_at: string | null
-  big_story_title: string | null
+  createdAt: string
+  deliveredAt: string | null
+  sections: DigestSectionsResponse
+}
+
+interface PaginatedDigestsResponse {
+  digests: DigestDetailResponse[]
+  total: number
+  page: number
+  limit: number
+  hasMore: boolean
 }
 
 // ---------------------------------------------------------------------------
 // JSON schemas
 // ---------------------------------------------------------------------------
 
-const contentItemProps = {
-  id: { type: 'string' },
-  summary_short: { type: 'string', nullable: true },
-  summary_long: { type: 'string', nullable: true },
-  title: { type: 'string', nullable: true },
-  url: { type: 'string', nullable: true },
-  image_url: { type: 'string', nullable: true },
-  source: { type: 'string', nullable: true },
-  published_at: { type: 'string', nullable: true },
-}
-
-const nullableContentItemSchema = {
+const storyItemSchema = {
   type: 'object',
-  nullable: true,
-  properties: contentItemProps,
-}
-
-const digestDetailResponseSchema = {
-  200: {
-    type: 'object',
-    properties: {
-      id: { type: 'string' },
-      week_of: { type: 'string' },
-      status: { type: 'string' },
-      delivered_at: { type: 'string', nullable: true },
-      big_story: nullableContentItemSchema,
-      image_of_week: nullableContentItemSchema,
-      paper_dive: nullableContentItemSchema,
-      quick_hits: {
-        type: 'array',
-        items: { type: 'object', properties: contentItemProps },
-      },
-    },
+  properties: {
+    title: { type: 'string' },
+    summary: { type: 'string' },
+    sourceUrl: { type: 'string' },
+    source: { type: 'string' },
+    imageUrl: { type: 'string', nullable: true },
   },
 }
 
+const paperItemSchema = {
+  type: 'object',
+  nullable: true,
+  properties: {
+    title: { type: 'string' },
+    authors: { type: 'array', items: { type: 'string' } },
+    abstract: { type: 'string' },
+    summary: { type: 'string' },
+    arxivUrl: { type: 'string' },
+  },
+}
+
+const imageItemSchema = {
+  type: 'object',
+  nullable: true,
+  properties: {
+    title: { type: 'string' },
+    description: { type: 'string' },
+    imageUrl: { type: 'string' },
+    credit: { type: 'string', nullable: true },
+  },
+}
+
+const sectionsSchema = {
+  type: 'object',
+  properties: {
+    bigStory: storyItemSchema,
+    quickHits: { type: 'array', items: storyItemSchema },
+    imageOfWeek: imageItemSchema,
+    paperDeepDive: paperItemSchema,
+    spaceNews: { type: 'array', items: {} },
+  },
+}
+
+const digestDetailSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    weekStart: { type: 'string' },
+    weekEnd: { type: 'string' },
+    status: { type: 'string' },
+    createdAt: { type: 'string' },
+    deliveredAt: { type: 'string', nullable: true },
+    sections: sectionsSchema,
+  },
+}
+
+const digestDetailResponseSchema = { 200: digestDetailSchema }
+
 const digestListResponseSchema = {
   200: {
-    type: 'array',
-    items: {
-      type: 'object',
-      properties: {
-        id: { type: 'string' },
-        week_of: { type: 'string' },
-        status: { type: 'string' },
-        delivered_at: { type: 'string', nullable: true },
-        big_story_title: { type: 'string', nullable: true },
-      },
+    type: 'object',
+    properties: {
+      digests: { type: 'array', items: digestDetailSchema },
+      total: { type: 'integer' },
+      page: { type: 'integer' },
+      limit: { type: 'integer' },
+      hasMore: { type: 'boolean' },
     },
   },
 }
@@ -101,10 +157,9 @@ const listQuerySchema = {
 }
 
 // ---------------------------------------------------------------------------
-// Query helpers
+// Content select columns (shared between single and batch fetches)
 // ---------------------------------------------------------------------------
 
-// Column list shared between single-item and batch fetches
 const CONTENT_SELECT = [
   'processed_content.id',
   'processed_content.summary_short',
@@ -114,31 +169,43 @@ const CONTENT_SELECT = [
   'raw_content.image_url',
   'raw_content.source',
   'raw_content.published_at',
+  'raw_content.abstract',
 ] as const
 
-function mapContentRow(row: {
-  id: string
-  summary_short: string | null
-  summary_long: string | null
-  title: string | null
-  url: string | null
-  image_url: string | null
-  source: string | null
-  published_at: Date | null
-}): ContentItem {
+// ---------------------------------------------------------------------------
+// Row → typed response helpers
+// ---------------------------------------------------------------------------
+
+function toStoryItem(row: ContentRow): StoryItem {
   return {
-    id: row.id,
-    summary_short: row.summary_short,
-    summary_long: row.summary_long,
-    title: row.title,
-    url: row.url,
-    image_url: row.image_url,
-    source: row.source,
-    published_at: row.published_at?.toISOString() ?? null,
+    title: row.title ?? 'Untitled',
+    summary: row.summary_short ?? row.summary_long ?? '',
+    sourceUrl: row.url ?? '#',
+    source: row.source ?? 'unknown',
+    imageUrl: row.image_url,
   }
 }
 
-async function fetchContentItem(contentId: string): Promise<ContentItem | null> {
+function toPaperItem(row: ContentRow): PaperItem {
+  return {
+    title: row.title ?? 'Untitled',
+    authors: [],
+    abstract: row.abstract ?? '',
+    summary: row.summary_short ?? row.summary_long ?? '',
+    arxivUrl: row.url ?? '#',
+  }
+}
+
+function toImageItem(row: ContentRow): ImageItem {
+  return {
+    title: row.title ?? '',
+    description: row.summary_short ?? '',
+    imageUrl: row.image_url ?? '',
+    credit: null,
+  }
+}
+
+async function fetchContentRow(contentId: string): Promise<ContentRow | null> {
   const row = await db
     .selectFrom('processed_content')
     .leftJoin('raw_content', 'raw_content.id', 'processed_content.raw_content_id')
@@ -146,10 +213,14 @@ async function fetchContentItem(contentId: string): Promise<ContentItem | null> 
     .where('processed_content.id', '=', contentId)
     .executeTakeFirst()
 
-  return row ? mapContentRow(row) : null
+  return row ?? null
 }
 
-async function fetchDigestDetail(digestId: string): Promise<DigestDetail | null> {
+// ---------------------------------------------------------------------------
+// fetchDigestDetail — returns the shared Digest shape
+// ---------------------------------------------------------------------------
+
+async function fetchDigestDetail(digestId: string): Promise<DigestDetailResponse | null> {
   const digest = await db
     .selectFrom('digests')
     .selectAll()
@@ -160,10 +231,10 @@ async function fetchDigestDetail(digestId: string): Promise<DigestDetail | null>
 
   const quickHitIds = digest.quick_hit_ids ?? []
 
-  const [bigStory, imageOfWeek, paperDive, quickHits] = await Promise.all([
-    digest.big_story_id ? fetchContentItem(digest.big_story_id) : Promise.resolve(null),
-    digest.image_of_week_id ? fetchContentItem(digest.image_of_week_id) : Promise.resolve(null),
-    digest.paper_dive_id ? fetchContentItem(digest.paper_dive_id) : Promise.resolve(null),
+  const [bigStoryRow, imageRow, paperRow, quickHitRows] = await Promise.all([
+    digest.big_story_id ? fetchContentRow(digest.big_story_id) : Promise.resolve(null),
+    digest.image_of_week_id ? fetchContentRow(digest.image_of_week_id) : Promise.resolve(null),
+    digest.paper_dive_id ? fetchContentRow(digest.paper_dive_id) : Promise.resolve(null),
     quickHitIds.length > 0
       ? db
           .selectFrom('processed_content')
@@ -171,24 +242,35 @@ async function fetchDigestDetail(digestId: string): Promise<DigestDetail | null>
           .select(CONTENT_SELECT)
           .where('processed_content.id', 'in', quickHitIds)
           .execute()
-          .then((rows) => rows.map(mapContentRow))
-      : Promise.resolve([] as ContentItem[]),
+      : Promise.resolve([] as ContentRow[]),
   ])
+
+  if (!bigStoryRow) return null
+
+  const weekStart = (digest.week_start ?? digest.week_of).toISOString()
+  const weekEnd = (digest.week_end ?? digest.week_of).toISOString()
 
   return {
     id: digest.id,
-    week_of: digest.week_of.toISOString(),
+    weekStart,
+    weekEnd,
     status: digest.status,
-    delivered_at: digest.delivered_at?.toISOString() ?? null,
-    big_story: bigStory,
-    image_of_week: imageOfWeek,
-    paper_dive: paperDive,
-    quick_hits: quickHits,
+    createdAt: digest.created_at.toISOString(),
+    deliveredAt: digest.delivered_at?.toISOString() ?? null,
+    sections: {
+      bigStory: toStoryItem(bigStoryRow),
+      quickHits: quickHitRows.map(toStoryItem),
+      imageOfWeek: imageRow ? toImageItem(imageRow) : null,
+      paperDeepDive: paperRow ? toPaperItem(paperRow) : null,
+      spaceNews: [],
+    },
   }
 }
 
-// Re-throw errors that already carry an HTTP status code (e.g. from
-// fastify.httpErrors.*) so they reach Fastify's error handler unchanged.
+// ---------------------------------------------------------------------------
+// Error helpers
+// ---------------------------------------------------------------------------
+
 function isHttpError(err: unknown): err is { statusCode: number; message: string } {
   return (
     typeof err === 'object' &&
@@ -203,14 +285,14 @@ function isHttpError(err: unknown): err is { statusCode: number; message: string
 // ---------------------------------------------------------------------------
 
 export default async function digestRoutes(fastify: FastifyInstance): Promise<void> {
-  // ---- GET /latest --------------------------------------------------------
+  // ---- GET /latest ----------------------------------------------------------
 
   fastify.get(
     '/latest',
     { schema: { response: digestDetailResponseSchema } },
-    async (): Promise<DigestDetail> => {
+    async (): Promise<DigestDetailResponse> => {
       try {
-        const cached = await redis.get<DigestDetail>('digest:latest')
+        const cached = await redis.get<DigestDetailResponse>('digest:latest')
         if (cached) return cached
 
         const row = await db
@@ -241,39 +323,45 @@ export default async function digestRoutes(fastify: FastifyInstance): Promise<vo
     },
   )
 
-  // ---- GET / --------------------------------------------------------------
+  // ---- GET / ----------------------------------------------------------------
 
   fastify.get<{ Querystring: { page: number; limit: number } }>(
     '/',
     { schema: { querystring: listQuerySchema, response: digestListResponseSchema } },
-    async (request): Promise<DigestSummary[]> => {
+    async (request): Promise<PaginatedDigestsResponse> => {
       try {
         const { page, limit } = request.query
         const offset = (page - 1) * limit
 
-        const rows = await db
-          .selectFrom('digests')
-          .leftJoin('processed_content', 'processed_content.id', 'digests.big_story_id')
-          .leftJoin('raw_content', 'raw_content.id', 'processed_content.raw_content_id')
-          .select([
-            'digests.id',
-            'digests.week_of',
-            'digests.status',
-            'digests.delivered_at',
-            'raw_content.title as big_story_title',
-          ])
-          .orderBy('digests.week_of', 'desc')
-          .limit(limit)
-          .offset(offset)
-          .execute()
+        const [rows, countRow] = await Promise.all([
+          db
+            .selectFrom('digests')
+            .select(['digests.id'])
+            .where('status', 'in', ['delivered', 'assembled', 'ready'])
+            .orderBy('digests.week_of', 'desc')
+            .limit(limit)
+            .offset(offset)
+            .execute(),
+          db
+            .selectFrom('digests')
+            .where('status', 'in', ['delivered', 'assembled', 'ready'])
+            .select(db.fn.countAll<number>().as('count'))
+            .executeTakeFirstOrThrow(),
+        ])
 
-        return rows.map((row) => ({
-          id: row.id,
-          week_of: row.week_of.toISOString(),
-          status: row.status,
-          delivered_at: row.delivered_at?.toISOString() ?? null,
-          big_story_title: row.big_story_title ?? null,
-        }))
+        const digests = (await Promise.all(rows.map((r) => fetchDigestDetail(r.id)))).filter(
+          (d): d is DigestDetailResponse => d !== null,
+        )
+
+        const total = Number(countRow.count)
+
+        return {
+          digests,
+          total,
+          page,
+          limit,
+          hasMore: offset + rows.length < total,
+        }
       } catch (err) {
         if (isHttpError(err)) throw err
         request.log.error({ err }, 'Failed to list digests')
@@ -282,16 +370,16 @@ export default async function digestRoutes(fastify: FastifyInstance): Promise<vo
     },
   )
 
-  // ---- GET /:id -----------------------------------------------------------
+  // ---- GET /:id -------------------------------------------------------------
 
   fastify.get<{ Params: { id: string } }>(
     '/:id',
     { schema: { response: digestDetailResponseSchema } },
-    async (request): Promise<DigestDetail> => {
+    async (request): Promise<DigestDetailResponse> => {
       try {
         const { id } = request.params
 
-        const cached = await redis.get<DigestDetail>(`digest:${id}`)
+        const cached = await redis.get<DigestDetailResponse>(`digest:${id}`)
         if (cached) return cached
 
         const detail = await fetchDigestDetail(id)
