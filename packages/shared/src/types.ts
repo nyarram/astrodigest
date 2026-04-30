@@ -106,6 +106,7 @@ export interface UserPreferences {
   deliveryDay: DeliveryDay
   deliveryTime: string // HH:MM
   timezone: string
+  minRelevanceScore?: number
 }
 
 export interface User {

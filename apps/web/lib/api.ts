@@ -69,6 +69,11 @@ export async function updatePreferences(userId: string, prefs: UserPreferences):
   await client.put(`/users/${userId}/preferences`, prefs)
 }
 
+export async function getUserPreferences(userId: string): Promise<UserPreferences> {
+  const { data } = await client.get<UserPreferences>(`/users/${userId}/preferences`)
+  return data
+}
+
 export async function savePushToken(userId: string, token: string): Promise<void> {
   await client.post(`/users/${userId}/push-token`, { token })
 }

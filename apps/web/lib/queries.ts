@@ -10,6 +10,7 @@ import {
   getLatestDigest,
   getDigests,
   getDigest,
+  getUserPreferences,
   updatePreferences,
   registerTokenGetter,
 } from '@/lib/api'
@@ -43,6 +44,16 @@ export function useDigests(page: number): UseQueryResult<PaginatedDigests> {
     queryKey: queryKeys.digests(page),
     queryFn: () => getDigests(page, 10),
     staleTime: 30 * 60 * 1000, // 30 minutes
+  })
+}
+
+export function useUserPreferences(userId: string): UseQueryResult<UserPreferences> {
+  return useQuery({
+    queryKey: queryKeys.preferences(userId),
+    queryFn: () => getUserPreferences(userId),
+    enabled: userId.length > 0,
+    staleTime: 5 * 60 * 1000,
+    retry: false, // 404 is expected for new users; don't hammer the API
   })
 }
 
