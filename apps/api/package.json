@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@astrodigest/database": "^0.0.1",
+    "@astrodigest/shared": "*",
     "@types/node": "^25.6.0",
     "@types/ws": "^8.18.1",
     "tsx": "^4.21.0"

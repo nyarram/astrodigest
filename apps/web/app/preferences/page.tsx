@@ -7,20 +7,10 @@ import { useUserPreferences, useSavePreferences } from '@/lib/queries'
 import { Button } from '@/components/ui/button'
 import { SourceBadge } from '@/components/SourceBadge'
 import { cn } from '@/lib/utils'
+import { VALID_TOPICS, PREFERENCE_SOURCES } from '@astrodigest/shared'
 import type { SourceType, UserPreferences } from '@astrodigest/shared'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const TOPICS = [
-  'exoplanets',
-  'black holes',
-  'solar system',
-  'cosmology',
-  'space missions',
-  'astrobiology',
-] as const
-
-const SOURCES: SourceType[] = ['nasa', 'eso', 'alma', 'arxiv', 'nasaspaceflight']
 
 const RELEVANCE_MIN = 0.3
 const RELEVANCE_MAX = 0.9
@@ -147,7 +137,7 @@ export default function PreferencesPage(): JSX.Element {
         {/* Topics */}
         <Section title="Topics">
           <div className="flex flex-wrap gap-2">
-            {TOPICS.map((topic) => (
+            {VALID_TOPICS.map((topic) => (
               <CheckPill
                 key={topic}
                 label={topic}
@@ -161,7 +151,7 @@ export default function PreferencesPage(): JSX.Element {
         {/* Sources */}
         <Section title="Sources">
           <div className="flex flex-wrap gap-2">
-            {SOURCES.map((source) => (
+            {PREFERENCE_SOURCES.map((source) => (
               <button
                 key={source}
                 type="button"

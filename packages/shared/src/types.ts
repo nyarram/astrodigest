@@ -91,6 +91,30 @@ export interface Digest {
 
 // ─── User ─────────────────────────────────────────────────────────────────────
 
+// ─── Topics / Sources ─────────────────────────────────────────────────────────
+
+export const VALID_TOPICS = [
+  'exoplanets',
+  'black holes',
+  'solar system',
+  'cosmology',
+  'space missions',
+  'astrobiology',
+] as const
+
+export type Topic = (typeof VALID_TOPICS)[number]
+
+// Sources available for user preference selection (subset of SourceType)
+export const PREFERENCE_SOURCES = [
+  'nasa',
+  'eso',
+  'alma',
+  'arxiv',
+  'nasaspaceflight',
+] as const satisfies readonly SourceType[]
+
+// ─── Delivery ─────────────────────────────────────────────────────────────────
+
 export type DeliveryDay =
   | 'monday'
   | 'tuesday'

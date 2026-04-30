@@ -7,6 +7,12 @@ export interface UsersTable {
   push_token: string | null
   push_notifications_enabled: Generated<boolean>
   created_at: Generated<Date>
+  // Added in migration 009
+  preferred_sources: Generated<string[]>
+  delivery_day: Generated<string>
+  delivery_time: Generated<string>
+  timezone: Generated<string>
+  min_relevance_score: Generated<number>
 }
 
 export interface UserPreferencesTable {
