@@ -6,6 +6,7 @@
     "build": "tsc",
     "dev": "ts-node-dev src/index.ts",
     "lint": "eslint .",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json}\"",
     "typecheck": "tsc --noEmit"
   }
 }

@@ -6,6 +6,7 @@
     "build": "expo export",
     "dev": "expo start",
     "lint": "eslint .",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json}\"",
     "typecheck": "tsc --noEmit"
   }
 }
