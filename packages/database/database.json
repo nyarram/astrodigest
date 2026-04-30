@@ -1,0 +1,8 @@
+{
+  "defaultEnv": "default",
+  "default": {
+    "url": { "ENV": "NEON_DATABASE_URL" }
+  },
+  "migrationsDir": "migrations",
+  "dir": "migrations"
+}
