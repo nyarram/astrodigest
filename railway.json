@@ -4,7 +4,7 @@
     "api": {
       "build": {
         "builder": "NIXPACKS",
-        "buildCommand": "npm run build --workspace=@astrodigest/api"
+        "buildCommand": "npm run build --workspace=@astrodigest/shared && npm run build --workspace=@astrodigest/api"
       },
       "deploy": {
         "startCommand": "npm run start --workspace=@astrodigest/api",
