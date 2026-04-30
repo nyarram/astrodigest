@@ -3,10 +3,14 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx,js,json}\"",
     "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260310.1",
+    "wrangler": "^4.71.0"
   }
 }
