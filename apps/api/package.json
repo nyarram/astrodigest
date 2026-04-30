@@ -1,0 +1,11 @@
+{
+  "name": "@astrodigest/api",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node-dev src/index.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  }
+}
