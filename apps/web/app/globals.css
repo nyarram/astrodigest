@@ -103,3 +103,77 @@
     text-wrap: balance;
   }
 }
+
+/* ─── Solar system animations ─────────────────────────────────────────────── */
+
+@keyframes solar-orbit-cw {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes solar-orbit-ccw {
+  from {
+    transform: translateX(-50%) translateY(-50%) rotate(0deg);
+  }
+  to {
+    transform: translateX(-50%) translateY(-50%) rotate(-360deg);
+  }
+}
+
+@keyframes solar-sun-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 28px 7px rgb(245 158 11 / 0.32),
+      0 0 55px 18px rgb(245 158 11 / 0.12);
+  }
+  50% {
+    box-shadow:
+      0 0 48px 13px rgb(245 158 11 / 0.48),
+      0 0 85px 28px rgb(245 158 11 / 0.2);
+  }
+}
+
+@keyframes solar-panel-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.solar-orbit-track {
+  animation-name: solar-orbit-cw;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  border-radius: 50%;
+}
+
+.solar-orbit-planet {
+  animation-name: solar-orbit-ccw;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  transition: filter 0.15s;
+}
+
+.solar-orbit-planet:hover {
+  filter: brightness(1.5) saturate(1.3);
+}
+
+.solar-sun {
+  animation: solar-sun-pulse 3.5s ease-in-out infinite;
+  transition: transform 0.15s;
+}
+
+.solar-sun:hover {
+  transform: scale(1.08);
+}
+
+.solar-panel {
+  animation: solar-panel-slide-in 0.22s ease-out;
+}
