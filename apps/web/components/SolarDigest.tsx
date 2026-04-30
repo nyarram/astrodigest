@@ -1,6 +1,8 @@
 'use client'
 
 import { useRef, useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
+import { SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
 import type {
   Digest,
   BigStory,
@@ -9,6 +11,20 @@ import type {
   PaperDeepDive,
   SpaceNewsItem,
 } from '@astrodigest/shared'
+
+// ── Hooks ─────────────────────────────────────────────────────────────────────
+
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 640 : false,
+  )
+  useEffect(() => {
+    const handler = (): void => setIsMobile(window.innerWidth < 640)
+    window.addEventListener('resize', handler)
+    return (): void => window.removeEventListener('resize', handler)
+  }, [])
+  return isMobile
+}
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -325,7 +341,6 @@ function SolarCanvas({ bodies, onSelect, selectedId, userSpeed }: SolarCanvasPro
   const pendingRef = useRef<BodyDef | null>(null)
   const zoomDelayRef = useRef(0)
 
-  const parallaxRef = useRef({ x: 0, y: 0 })
   const trailsRef = useRef(new Map<string, Array<{ x: number; y: number }>>())
   const shootsRef = useRef<ShootingStar[]>([])
   const nextShootRef = useRef(1.5)
@@ -453,11 +468,6 @@ function SolarCanvas({ bodies, onSelect, selectedId, userSpeed }: SolarCanvasPro
       loadTRef.current = Math.min(loadTRef.current + dt / 2.2, 1)
       const loadE = 1 - Math.pow(1 - loadTRef.current, 3)
 
-      parallaxRef.current.x += ((mx / W - 0.5) * 2 - parallaxRef.current.x) * 0.04
-      parallaxRef.current.y += ((my / H - 0.5) * 2 - parallaxRef.current.y) * 0.04
-      const px = parallaxRef.current.x,
-        py = parallaxRef.current.y
-
       const isHovering = hoverIdRef.current !== null
       speedMultRef.current += ((isHovering ? 0 : 1) - speedMultRef.current) * 0.07
       const sm = speedMultRef.current * userSpeedRef.current * loadE
@@ -554,7 +564,7 @@ function SolarCanvas({ bodies, onSelect, selectedId, userSpeed }: SolarCanvasPro
         s.phase += s.spd
         const op = s.op * (0.7 + 0.3 * Math.sin(s.phase))
         ctx.beginPath()
-        ctx.arc(s.x * W + px * s.depth * 28, s.y * H + py * s.depth * 18, s.r, 0, Math.PI * 2)
+        ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2)
         ctx.fillStyle = `rgba(226,232,240,${op.toFixed(3)})`
         ctx.fill()
       })
@@ -852,13 +862,90 @@ function SolarCanvas({ bodies, onSelect, selectedId, userSpeed }: SolarCanvasPro
       pendingRef.current = body
       zoomDelayRef.current = 0.48
     }
+    const onTouchStart = (e: TouchEvent): void => {
+      const touch = e.touches[0]
+      if (touch) mouseRef.current = { x: touch.clientX, y: touch.clientY }
+    }
+    const onTouchEnd = (e: TouchEvent): void => {
+      e.preventDefault()
+      const touch = e.changedTouches[0]
+      if (!touch) return
+      const tcx = touch.clientX,
+        tcy = touch.clientY
+      const cv = canvasRef.current
+      if (!cv) return
+      const W = cv.width,
+        H = cv.height
+      const cam = camRef.current
+      const wx = (tcx - W / 2) / cam.z + cam.tx
+      const wy = (tcy - H / 2) / cam.z + cam.ty
+      const bods = bodiesRef.current
+      const angles = angleRef.current
+      const interactive = getInteractiveIds(bods)
+      const loadE = 1 - Math.pow(1 - Math.min(loadTRef.current, 1), 3)
+
+      let touchedBody: BodyDef | null = null
+      // Sun hit test
+      if (wx * wx + wy * wy <= ((42 + 20) / cam.z) ** 2) {
+        touchedBody = bods.find((b) => b.id === 'sun') ?? null
+      }
+      if (!touchedBody) {
+        bods.forEach((b) => {
+          if (b.id === 'sun' || b.id === 'asteroids' || !interactive.has(b.id)) return
+          let bwx: number, bwy: number
+          if (b.id === 'moon') {
+            const ea = angles['earth'] ?? 0
+            bwx = 122 * loadE * Math.cos(ea) + MOON_ORBIT_R * Math.cos(moonLocalAngle.current)
+            bwy = 122 * loadE * Math.sin(ea) + MOON_ORBIT_R * Math.sin(moonLocalAngle.current)
+          } else {
+            bwx = b.orbit * loadE * Math.cos(angles[b.id] ?? 0)
+            bwy = b.orbit * loadE * Math.sin(angles[b.id] ?? 0)
+          }
+          const dx = wx - bwx,
+            dy = wy - bwy
+          const hitR = (b.r + 20) / cam.z
+          if (dx * dx + dy * dy <= hitR * hitR) touchedBody = b
+        })
+      }
+      // Asteroid belt hit test
+      if (!touchedBody) {
+        const astBody = bods.find((b) => b.id === 'asteroids')
+        if (astBody && interactive.has('asteroids')) {
+          for (const ast of asteroidsRef.current) {
+            const r = (220 + ast.variance) * loadE
+            const ax = r * Math.cos(ast.angle),
+              ay = r * Math.sin(ast.angle)
+            const dx = wx - ax,
+              dy = wy - ay
+            if (dx * dx + dy * dy <= (ast.r + 12) ** 2 / cam.z ** 2) {
+              touchedBody = astBody
+              break
+            }
+          }
+        }
+      }
+
+      mouseRef.current = { x: -9999, y: -9999 }
+      if (!touchedBody) return
+      if (selectedIdRef.current === touchedBody.id) {
+        onSelectRef.current(touchedBody)
+        return
+      }
+      pendingRef.current = touchedBody
+      zoomDelayRef.current = 0.48
+    }
+
     canvas.addEventListener('mousemove', onMove)
     canvas.addEventListener('mouseleave', onLeave)
     canvas.addEventListener('click', onClick)
+    canvas.addEventListener('touchstart', onTouchStart, { passive: true })
+    canvas.addEventListener('touchend', onTouchEnd, { passive: false })
     return (): void => {
       canvas.removeEventListener('mousemove', onMove)
       canvas.removeEventListener('mouseleave', onLeave)
       canvas.removeEventListener('click', onClick)
+      canvas.removeEventListener('touchstart', onTouchStart)
+      canvas.removeEventListener('touchend', onTouchEnd)
     }
   }, [])
 
@@ -1132,7 +1219,15 @@ function PanelContent({ body }: { body: BodyDef }): JSX.Element | null {
   }
 }
 
-function StoryPanel({ body, onClose }: { body: BodyDef | null; onClose: () => void }): JSX.Element {
+function StoryPanel({
+  body,
+  onClose,
+  isMobile,
+}: {
+  body: BodyDef | null
+  onClose: () => void
+  isMobile: boolean
+}): JSX.Element {
   const open = !!body
   const accentColor = body
     ? body.type === 'bigStory'
@@ -1146,6 +1241,38 @@ function StoryPanel({ body, onClose }: { body: BodyDef | null; onClose: () => vo
             : (SRC_COLOR[(body.data as QuickHit)?.source] ?? '#60a5fa')
     : '#60a5fa'
 
+  const panelStyle: React.CSSProperties = isMobile
+    ? {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: '72%',
+        borderTop: '1px solid rgba(255,255,255,0.07)',
+        borderLeft: 'none',
+        background: 'rgba(5,5,18,0.97)',
+        backdropFilter: 'blur(24px)',
+        display: 'flex',
+        flexDirection: 'column',
+        borderRadius: '16px 16px 0 0',
+        transform: open ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform 0.42s cubic-bezier(0.16,1,0.3,1)',
+      }
+    : {
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: 440,
+        background: 'rgba(5,5,18,0.96)',
+        borderLeft: '1px solid rgba(255,255,255,0.07)',
+        backdropFilter: 'blur(24px)',
+        display: 'flex',
+        flexDirection: 'column',
+        transform: open ? 'translateX(0)' : 'translateX(100%)',
+        transition: 'transform 0.42s cubic-bezier(0.16,1,0.3,1)',
+      }
+
   return (
     <div
       style={{ position: 'fixed', inset: 0, zIndex: 60, pointerEvents: open ? 'all' : 'none' }}
@@ -1153,22 +1280,19 @@ function StoryPanel({ body, onClose }: { body: BodyDef | null; onClose: () => vo
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: 440,
-          background: 'rgba(5,5,18,0.96)',
-          borderLeft: '1px solid rgba(255,255,255,0.07)',
-          backdropFilter: 'blur(24px)',
-          display: 'flex',
-          flexDirection: 'column',
-          transform: open ? 'translateX(0)' : 'translateX(100%)',
-          transition: 'transform 0.42s cubic-bezier(0.16,1,0.3,1)',
-        }}
-      >
+      <div style={panelStyle}>
+        {isMobile && (
+          <div
+            style={{
+              width: 36,
+              height: 4,
+              borderRadius: 2,
+              background: 'rgba(255,255,255,0.15)',
+              margin: '10px auto 0',
+              flexShrink: 0,
+            }}
+          />
+        )}
         <div
           style={{
             padding: '22px 22px 18px',
@@ -1248,10 +1372,13 @@ function StoryPanel({ body, onClose }: { body: BodyDef | null; onClose: () => vo
 function SpeedControl({
   speed,
   onChange,
+  isMobile,
 }: {
   speed: number
   onChange: (v: number) => void
-}): JSX.Element {
+  isMobile: boolean
+}): JSX.Element | null {
+  if (isMobile) return null
   return (
     <div
       style={{
@@ -1325,10 +1452,13 @@ const LEGEND_ITEMS = [
 function Legend({
   bodies,
   onSelect,
+  isMobile,
 }: {
   bodies: BodyDef[]
   onSelect: (body: BodyDef) => void
-}): JSX.Element {
+  isMobile: boolean
+}): JSX.Element | null {
+  if (isMobile) return null
   return (
     <div
       style={{
@@ -1396,6 +1526,7 @@ interface SolarDigestProps {
 export function SolarDigest({ digest }: SolarDigestProps): JSX.Element {
   const [selected, setSelected] = useState<BodyDef | null>(null)
   const [userSpeed, setUserSpeed] = useState(1)
+  const isMobile = useIsMobile()
   const bodies = buildBodies(digest)
 
   const weekDate = new Date(digest.weekStart).toLocaleDateString('en-US', {
@@ -1422,9 +1553,97 @@ export function SolarDigest({ digest }: SolarDigestProps): JSX.Element {
         selectedId={selected?.id ?? null}
         userSpeed={userSpeed}
       />
-      <StoryPanel body={selected} onClose={handleClose} />
-      <Legend bodies={bodies} onSelect={handleSelect} />
-      <SpeedControl speed={userSpeed} onChange={setUserSpeed} />
+
+      {/* Logo — top left */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 20,
+          left: 24,
+          zIndex: 55,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}
+      >
+        <Link
+          href="/"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 7,
+            textDecoration: 'none',
+          }}
+        >
+          <span
+            style={{
+              fontFamily: '"IBM Plex Mono", monospace',
+              fontSize: 15,
+              color: '#fbbf24',
+              textShadow: '0 0 12px rgba(251,191,36,0.55)',
+              lineHeight: 1,
+            }}
+          >
+            ✦
+          </span>
+          <span
+            style={{
+              fontFamily: '"IBM Plex Mono", monospace',
+              fontSize: isMobile ? 11 : 12,
+              fontWeight: 600,
+              letterSpacing: '0.2em',
+              textTransform: 'uppercase',
+              color: 'rgba(226,232,240,0.75)',
+            }}
+          >
+            AstroDigest
+          </span>
+        </Link>
+      </div>
+
+      {/* Auth — top right */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 18,
+          right: 24,
+          zIndex: 55,
+          display: 'flex',
+          alignItems: 'center',
+        }}
+      >
+        <SignedIn>
+          <UserButton
+            appearance={{
+              elements: { avatarBox: 'w-8 h-8' },
+            }}
+          />
+        </SignedIn>
+        <SignedOut>
+          <Link
+            href="/sign-in"
+            style={{
+              fontFamily: '"IBM Plex Mono", monospace',
+              fontSize: 11,
+              letterSpacing: '0.1em',
+              color: 'rgba(148,163,184,0.7)',
+              textDecoration: 'none',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 8,
+              padding: '6px 14px',
+              background: 'rgba(6,6,20,0.6)',
+              backdropFilter: 'blur(10px)',
+              transition: 'color 0.2s, border-color 0.2s',
+            }}
+          >
+            Sign in
+          </Link>
+        </SignedOut>
+      </div>
+
+      <StoryPanel body={selected} onClose={handleClose} isMobile={isMobile} />
+      <Legend bodies={bodies} onSelect={handleSelect} isMobile={isMobile} />
+      <SpeedControl speed={userSpeed} onChange={setUserSpeed} isMobile={isMobile} />
       <div style={{ position: 'fixed', bottom: 28, right: 28, zIndex: 50, textAlign: 'right' }}>
         <div
           style={{
@@ -1457,7 +1676,7 @@ export function SolarDigest({ digest }: SolarDigestProps): JSX.Element {
           opacity: selected ? 0 : 1,
         }}
       >
-        Click any highlighted object to read
+        {isMobile ? 'Tap' : 'Click'} any highlighted object to read
       </div>
     </div>
   )

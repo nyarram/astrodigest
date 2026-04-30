@@ -5,8 +5,10 @@ import { usePathname } from 'next/navigation'
 import { SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
 import { cn } from '@/lib/utils'
 
-export function Nav(): JSX.Element {
+export function Nav(): JSX.Element | null {
   const pathname = usePathname()
+
+  if (pathname === '/') return null
 
   return (
     <header className="sticky top-0 z-[200] border-b border-border/40 bg-background/80 backdrop-blur-md">
