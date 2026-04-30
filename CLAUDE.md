@@ -32,7 +32,7 @@ delivers a curated weekly digest via push notification to a React Native app.
 - All async functions must have explicit return types
 - All errors must be logged with Pino before being thrown or rethrown
 - Database access only through Kysely — never raw SQL strings in application code
-- Migrations are raw SQL files in packages/database/migrations/
+- Migrations are raw SQL files: up migrations in packages/database/migrations/, rollback SQL in packages/database/migrations/rollback/; rollbacks run via packages/database/scripts/rollback.mjs (not node-pg-migrate down)
 - Every BullMQ worker job must have a try/catch that marks the job failed on error
 - Commit messages: imperative mood, under 72 characters
 - Never commit .env — only .env.example gets committed

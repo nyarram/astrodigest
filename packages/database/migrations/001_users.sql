@@ -1,4 +1,3 @@
--- Up
 CREATE TABLE users (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   clerk_id text UNIQUE NOT NULL,
@@ -7,6 +6,3 @@ CREATE TABLE users (
   push_notifications_enabled boolean DEFAULT true,
   created_at timestamptz DEFAULT now()
 );
-
--- Down
-DROP TABLE users;
