@@ -8,7 +8,8 @@ import { cn } from '@/lib/utils'
 export function Nav(): JSX.Element | null {
   const pathname = usePathname()
 
-  if (pathname === '/') return null
+  if (pathname === '/' || pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up'))
+    return null
 
   return (
     <header className="sticky top-0 z-[200] border-b border-border/40 bg-background/80 backdrop-blur-md">
