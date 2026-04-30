@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "prebuild": "cd ../.. && npm run build --workspace=@astrodigest/shared",
     "build": "tsc",
     "dev": "tsx watch --env-file=../../.env src/index.ts",
     "start": "node dist/index.js",
