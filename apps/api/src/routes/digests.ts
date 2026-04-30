@@ -216,7 +216,7 @@ export default async function digestRoutes(fastify: FastifyInstance): Promise<vo
         const row = await db
           .selectFrom('digests')
           .select('id')
-          .where('status', 'in', ['delivered', 'assembled'])
+          .where('status', 'in', ['delivered', 'assembled', 'ready'])
           .orderBy('week_of', 'desc')
           .limit(1)
           .executeTakeFirst()
