@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import * as Sentry from '@sentry/node'
 import { Queue } from 'bullmq'
 import type { Kysely } from 'kysely'
 import type IORedis from 'ioredis'
@@ -38,9 +39,27 @@ export class DigestAssembler {
    * Idempotent: if a digest for the current week already exists,
    * logs a warning and returns the existing digest id.
    *
+   * @param options.dryRun - Skip the BullMQ delivery enqueue (useful for smoke testing).
    * @returns The digest id (new or existing).
    */
-  async assemble(): Promise<string> {
+  async assemble(options: { dryRun?: boolean } = {}): Promise<string> {
+    return Sentry.startSpan(
+      { name: 'digest.assembly', op: 'function', forceTransaction: true },
+      async (txnSpan) => {
+        try {
+          return await this._assembleInner(options, txnSpan)
+        } catch (err) {
+          Sentry.captureException(err)
+          throw err
+        }
+      },
+    )
+  }
+
+  private async _assembleInner(
+    options: { dryRun?: boolean },
+    txnSpan: Parameters<Parameters<typeof Sentry.startSpan>[1]>[0],
+  ): Promise<string> {
     const now = new Date()
     const weekStart = getMondayUTC(now)
     const weekEnd = getSundayUTC(weekStart)
@@ -53,7 +72,9 @@ export class DigestAssembler {
 
     let sections: DigestSections
     try {
-      sections = await this.selector.selectWeekContent()
+      sections = await Sentry.startSpan({ name: 'content.selection', op: 'function' }, () =>
+        this.selector.selectWeekContent(),
+      )
     } catch (err) {
       this.logger.error({ err }, 'content selection failed')
       throw err
@@ -92,24 +113,26 @@ export class DigestAssembler {
     const createdAt = new Date()
 
     try {
-      await this.db
-        .insertInto('digests')
-        .values({
-          id: digestId,
-          // week_of kept for API backward compat; same anchor as week_start
-          week_of: weekStart,
-          week_start: weekStart,
-          week_end: weekEnd,
-          sections: JSON.stringify(sections),
-          big_story_id: sections.bigStory.id,
-          quick_hit_ids: sections.quickHits.map((h) => h.id),
-          image_of_week_id: sections.imageOfWeek?.id ?? null,
-          paper_dive_id: sections.paperDeepDive.id,
-          status: 'ready',
-          delivered_at: null,
-          created_at: createdAt,
-        })
-        .executeTakeFirstOrThrow()
+      await Sentry.startSpan({ name: 'digest.insert', op: 'db.query' }, () =>
+        this.db
+          .insertInto('digests')
+          .values({
+            id: digestId,
+            // week_of kept for API backward compat; same anchor as week_start
+            week_of: weekStart,
+            week_start: weekStart,
+            week_end: weekEnd,
+            sections: JSON.stringify(sections),
+            big_story_id: sections.bigStory.id,
+            quick_hit_ids: sections.quickHits.map((h) => h.id),
+            image_of_week_id: sections.imageOfWeek?.id ?? null,
+            paper_dive_id: sections.paperDeepDive.id,
+            status: 'ready',
+            delivered_at: null,
+            created_at: createdAt,
+          })
+          .executeTakeFirstOrThrow(),
+      )
     } catch (err) {
       this.logger.error({ err, digestId, weekStart }, 'DB error inserting digest')
       throw err
@@ -118,38 +141,42 @@ export class DigestAssembler {
     this.logger.info({ digestId, weekStart, weekEnd }, 'digest record inserted')
 
     // ------------------------------------------------------------------
-    // 4. Enqueue a delayed delivery job
+    // 4. Enqueue a delayed delivery job (skipped in dryRun mode)
     // ------------------------------------------------------------------
 
     const delivery = getNextSaturdayDelivery(now)
     const delayMs = Math.max(0, delivery.getTime() - now.getTime())
 
-    const deliveryQueue = new Queue<DeliveryJobPayload>('delivery', {
-      connection: this.redisClient,
-    })
+    if (!options.dryRun) {
+      const deliveryQueue = new Queue<DeliveryJobPayload>('delivery', {
+        connection: this.redisClient,
+      })
 
-    try {
-      await deliveryQueue.add(
-        'deliver-digest',
-        { digestId, scheduledFor: delivery.toISOString() },
-        {
-          jobId: digestId, // deduplication key — BullMQ ignores duplicate jobIds
-          delay: delayMs,
-          attempts: 3,
-          backoff: { type: 'exponential', delay: 5000 },
-          removeOnComplete: 100,
-          removeOnFail: 50,
-        },
-      )
-    } catch (err) {
-      this.logger.error({ err, digestId, delivery }, 'failed to enqueue delivery job')
-      throw err
-    } finally {
-      await deliveryQueue.close()
+      try {
+        await Sentry.startSpan({ name: 'delivery.enqueue', op: 'queue.publish' }, () =>
+          deliveryQueue.add(
+            'deliver-digest',
+            { digestId, scheduledFor: delivery.toISOString() },
+            {
+              jobId: digestId, // deduplication key — BullMQ ignores duplicate jobIds
+              delay: delayMs,
+              attempts: 3,
+              backoff: { type: 'exponential', delay: 5000 },
+              removeOnComplete: 100,
+              removeOnFail: 50,
+            },
+          ),
+        )
+      } catch (err) {
+        this.logger.error({ err, digestId, delivery }, 'failed to enqueue delivery job')
+        throw err
+      } finally {
+        await deliveryQueue.close()
+      }
     }
 
     // ------------------------------------------------------------------
-    // 5. Summary log
+    // 5. Summary log + Sentry measurements
     // ------------------------------------------------------------------
 
     const sectionCount = [
@@ -166,6 +193,7 @@ export class DigestAssembler {
         weekStart,
         weekEnd,
         sectionCount,
+        dryRun: options.dryRun ?? false,
         bigStoryId: sections.bigStory.id,
         imageOfWeekId: sections.imageOfWeek?.id ?? null,
         paperDeepDiveId: sections.paperDeepDive.id,
@@ -174,8 +202,15 @@ export class DigestAssembler {
         scheduledFor: delivery.toISOString(),
         deliveryDelayMs: delayMs,
       },
-      'digest assembled and delivery job enqueued',
+      'digest assembled',
     )
+
+    txnSpan.setStatus({ code: 1 }) // SpanStatusCode.OK
+    Sentry.setMeasurement('items_selected', sectionCount, 'none')
+    // confidence_score is the quality signal available post-join-strip;
+    // relevance_score lives on raw_content and is not carried through to ProcessedContent.
+    Sentry.setMeasurement('big_story_score', sections.bigStory.confidence_score ?? 0, 'none')
+    Sentry.setMeasurement('has_image', sections.imageOfWeek !== null ? 1 : 0, 'none')
 
     return digestId
   }
