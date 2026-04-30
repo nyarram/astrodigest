@@ -1,11 +1,24 @@
 import { Worker } from 'bullmq'
-import Anthropic from '@anthropic-ai/sdk'
+import Groq from 'groq-sdk'
 import { db } from '@astrodigest/database'
 import { bullmqConnection, summarizationQueue, editorialQueue } from '../queues.js'
 import { logger } from '../logger.js'
 import type { SummarizationJob, EditorialJob } from '../queues.js'
 
-const anthropic = new Anthropic()
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+
+// ---------------------------------------------------------------------------
+// Model name mapping
+// ---------------------------------------------------------------------------
+
+const GROQ_MODEL_MAP: Record<string, string> = {
+  'claude-haiku-4-5-20251001': 'llama-3.3-70b-versatile',
+  'claude-sonnet-4-6': 'llama-3.3-70b-versatile',
+}
+
+function toGroqModel(model: string): string {
+  return GROQ_MODEL_MAP[model] ?? model
+}
 
 // ---------------------------------------------------------------------------
 // Prompt name by model
@@ -65,34 +78,37 @@ export const summarizationWorker = new Worker<SummarizationJob>(
       // 2. Render template variables
       const prompt = renderPrompt(promptVersion.prompt_template, job.data)
 
-      // 3. Call Anthropic API
-      const response = await anthropic.messages.create({
-        model,
-        max_tokens: 1000,
+      // 3. Call Groq API
+      const groqModel = toGroqModel(model)
+      const completion = await groq.chat.completions.create({
+        model: groqModel,
         messages: [{ role: 'user', content: prompt }],
+        max_tokens: 1000,
       })
 
-      const textBlock = response.content.find((b) => b.type === 'text')
-      if (!textBlock || textBlock.type !== 'text') {
-        throw new Error(`Anthropic returned no text block for rawContentId=${rawContentId}`)
+      const summaryText = completion.choices[0]?.message.content ?? ''
+
+      if (!summaryText) {
+        throw new Error(`Groq returned no text for rawContentId=${rawContentId}`)
       }
-      const outputText = textBlock.text
 
       // 4. Confidence score
-      const confidenceScore = scoreConfidence(outputText)
+      const confidenceScore = scoreConfidence(summaryText)
 
       // 5. Insert into processed_content
       const isSonnet = model === 'claude-sonnet-4-6'
+      const inputTokens = completion.usage?.prompt_tokens ?? 0
+      const outputTokens = completion.usage?.completion_tokens ?? 0
       const inserted = await db
         .insertInto('processed_content')
         .values({
           raw_content_id: rawContentId,
-          summary_short: outputText,
-          summary_long: isSonnet ? outputText : null,
+          summary_short: summaryText,
+          summary_long: isSonnet ? summaryText : null,
           prompt_version_id: promptVersion.id,
           model_used: model,
-          input_tokens: response.usage.input_tokens,
-          output_tokens: response.usage.output_tokens,
+          input_tokens: inputTokens,
+          output_tokens: outputTokens,
           confidence_score: confidenceScore,
           flagged: confidenceScore < 0.6,
         })
@@ -109,7 +125,7 @@ export const summarizationWorker = new Worker<SummarizationJob>(
       // 7. Log
       const label = title.slice(0, 50)
       logger.info(
-        `[summarization] ${label} → ${model} → tokens: ${response.usage.input_tokens}/${response.usage.output_tokens} → confidence: ${confidenceScore.toFixed(2)}`,
+        `[summarization] ${label} → ${model} → tokens: ${inputTokens}/${outputTokens} → confidence: ${confidenceScore.toFixed(2)}`,
       )
     } catch (err) {
       logger.error({ err, jobId: job.id, rawContentId }, '[summarization] job failed')

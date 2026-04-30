@@ -55,6 +55,15 @@ async function main(): Promise<void> {
   const sql = neon(connectionString)
 
   // -------------------------------------------------------------------------
+  // 0. Drain stale jobs from previous runs
+  // -------------------------------------------------------------------------
+
+  await scoringQueue.drain()
+  await summarizationQueue.drain()
+  await editorialQueue.drain()
+  logger.info('Queues drained.')
+
+  // -------------------------------------------------------------------------
   // 1. Insert test items into raw_content
   // -------------------------------------------------------------------------
 
