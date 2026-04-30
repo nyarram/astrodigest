@@ -35,6 +35,8 @@ export interface BigStory {
   title: string
   summary: string
   sourceUrl: string
+  source: SourceType
+  relevanceScore?: number
   imageUrl?: string
 }
 
@@ -42,6 +44,8 @@ export interface QuickHit {
   title: string
   summary: string
   sourceUrl: string
+  source: SourceType
+  relevanceScore?: number
 }
 
 export interface ImageOfWeek {
