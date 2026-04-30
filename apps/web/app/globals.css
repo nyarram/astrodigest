@@ -177,3 +177,24 @@
 .solar-panel {
   animation: solar-panel-slide-in 0.22s ease-out;
 }
+
+.solar-speed-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fbbf24;
+  box-shadow: 0 0 8px #fbbf2488;
+  cursor: pointer;
+}
+
+.solar-speed-slider::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fbbf24;
+  box-shadow: 0 0 8px #fbbf2488;
+  cursor: pointer;
+  border: none;
+}

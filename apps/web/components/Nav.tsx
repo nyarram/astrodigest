@@ -9,7 +9,7 @@ export function Nav(): JSX.Element {
   const pathname = usePathname()
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-md">
+    <header className="sticky top-0 z-[200] border-b border-border/40 bg-background/80 backdrop-blur-md">
       <nav className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
         {/* Logo */}
         <Link
