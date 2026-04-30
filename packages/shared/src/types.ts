@@ -28,3 +28,87 @@ export interface IngestResult {
   failed: number
   errors: string[]
 }
+
+// ─── Digest ──────────────────────────────────────────────────────────────────
+
+export interface BigStory {
+  title: string
+  summary: string
+  sourceUrl: string
+  imageUrl?: string
+}
+
+export interface QuickHit {
+  title: string
+  summary: string
+  sourceUrl: string
+}
+
+export interface ImageOfWeek {
+  title: string
+  description: string
+  imageUrl: string
+  credit?: string
+}
+
+export interface PaperDeepDive {
+  title: string
+  authors: string[]
+  abstract: string
+  summary: string
+  arxivUrl: string
+}
+
+export interface SpaceNewsItem {
+  title: string
+  summary: string
+  sourceUrl: string
+}
+
+export interface DigestSections {
+  bigStory: BigStory
+  quickHits: QuickHit[]
+  imageOfWeek: ImageOfWeek
+  paperDeepDive: PaperDeepDive
+  spaceNews?: SpaceNewsItem[]
+}
+
+export type DigestStatus = 'draft' | 'published' | 'delivered'
+
+export interface Digest {
+  id: string
+  weekStart: string
+  weekEnd: string
+  status: DigestStatus
+  sections: DigestSections
+  createdAt: string
+  deliveredAt?: string
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+export type DeliveryDay =
+  | 'monday'
+  | 'tuesday'
+  | 'wednesday'
+  | 'thursday'
+  | 'friday'
+  | 'saturday'
+  | 'sunday'
+
+export interface UserPreferences {
+  sources: SourceType[]
+  topics: string[]
+  deliveryDay: DeliveryDay
+  deliveryTime: string // HH:MM
+  timezone: string
+}
+
+export interface User {
+  id: string
+  clerkId: string
+  email: string
+  preferences: UserPreferences
+  pushToken?: string
+  createdAt: string
+}
