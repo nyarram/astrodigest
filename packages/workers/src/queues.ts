@@ -88,4 +88,6 @@ export interface EditorialJob {
 
 export interface DeliveryJob {
   digestId: string
+  /** ISO-8601 string — when the push notification should fire. Set by digest-assembly. */
+  scheduledFor: string
 }

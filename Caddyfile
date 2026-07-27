@@ -1,0 +1,3 @@
+188-34-162-117.sslip.io {
+	reverse_proxy api:3000
+}

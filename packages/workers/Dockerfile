@@ -17,15 +17,12 @@ RUN npm ci
 
 # Copy only the source files required for compilation
 COPY tsconfig.base.json               ./
-COPY apps/api/tsconfig.json           ./apps/api/
-COPY apps/api/src/                    ./apps/api/src/
+COPY packages/workers/tsconfig.json   ./packages/workers/
+COPY packages/workers/src/            ./packages/workers/src/
 # database package has "types": "./src/index.ts" — tsc resolves straight to source
 COPY packages/database/src/           ./packages/database/src/
-# shared package must actually be compiled — api's prebuild runs its tsc build
-COPY packages/shared/tsconfig.json    ./packages/shared/
-COPY packages/shared/src/             ./packages/shared/src/
 
-RUN npm run build --workspace=apps/api
+RUN npm run build --workspace=packages/workers
 
 # ---- Runtime stage ------------------------------------------------------
 FROM node:20-alpine
@@ -42,18 +39,13 @@ COPY packages/ingestion/package.json  ./packages/ingestion/
 # Install production deps only (@astrodigest/database is a devDep — omitted)
 RUN npm ci --omit=dev
 
-# users.ts imports runtime values (VALID_TOPICS, PREFERENCE_SOURCES) from @astrodigest/shared
-COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 # @astrodigest/database's package.json "main" points at ./src/index.ts (no dist build), and
 # its dist-less imports mix ESM/CJS resolution in ways `node --import tsx/esm` doesn't fully
 # cover — running the entrypoint itself through tsx (same as the "dev" script) sidesteps that
-COPY apps/api/src/                    ./apps/api/src/
+COPY packages/workers/src/            ./packages/workers/src/
 COPY packages/database/src/           ./packages/database/src/
 
 # Switch into the service directory so node resolves relative to src/
-WORKDIR /app/apps/api
-
-ARG PORT=3000
-EXPOSE $PORT
+WORKDIR /app/packages/workers
 
 CMD ["npx", "tsx", "src/index.ts"]

@@ -1,6 +1,8 @@
 import { scoringWorker } from './workers/scoring.worker.js'
 import { summarizationWorker } from './workers/summarization.worker.js'
 import { editorialWorker } from './workers/editorial.worker.js'
+import { deliveryWorker } from './workers/delivery.worker.js'
+import { startRawContentPoller } from './poller.js'
 import {
   bullmqConnection,
   ingestionQueue,
@@ -18,12 +20,13 @@ import { logger } from './logger.js'
 scoringWorker.concurrency = 2
 summarizationWorker.concurrency = 2
 editorialWorker.concurrency = 2
+deliveryWorker.concurrency = 2
 
 // ---------------------------------------------------------------------------
 // Event listeners
 // ---------------------------------------------------------------------------
 
-const workers = [scoringWorker, summarizationWorker, editorialWorker] as const
+const workers = [scoringWorker, summarizationWorker, editorialWorker, deliveryWorker] as const
 
 for (const worker of workers) {
   worker.on('completed', (job) => {
@@ -39,6 +42,8 @@ for (const worker of workers) {
 // Startup
 // ---------------------------------------------------------------------------
 
+const pollerHandle = startRawContentPoller()
+
 logger.info('AstroDigest workers started')
 
 // ---------------------------------------------------------------------------
@@ -50,6 +55,7 @@ const queues = [ingestionQueue, scoringQueue, summarizationQueue, editorialQueue
 async function shutdown(): Promise<void> {
   logger.info('Shutting down workers...')
 
+  clearInterval(pollerHandle)
   await Promise.all(workers.map((w) => w.close()))
   await Promise.all(queues.map((q) => q.close()))
   await bullmqConnection.quit()
