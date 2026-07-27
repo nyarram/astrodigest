@@ -1,0 +1,48 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: on-failure:3
+    env_file: .env
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+    expose:
+      - "3000"
+
+  workers:
+    build:
+      context: .
+      dockerfile: packages/workers/Dockerfile
+    restart: on-failure:3
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+
+  digest-assembly:
+    build:
+      context: .
+      dockerfile: packages/digest-assembly/Dockerfile
+    profiles: ["cron"] # not started by `docker compose up` — invoked on-demand by crontab
+    restart: "no"
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  caddy_data:
+  caddy_config:

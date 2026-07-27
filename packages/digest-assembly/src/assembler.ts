@@ -148,7 +148,10 @@ export class DigestAssembler {
     const delayMs = Math.max(0, delivery.getTime() - now.getTime())
 
     if (!options.dryRun) {
-      const deliveryQueue = new Queue<DeliveryJobPayload>('delivery', {
+      // Must match the queue name workers/queues.ts registers a Worker on
+      // ('delivery-queue') — a prior mismatch here silently dropped every
+      // delivery job into a queue nothing consumed.
+      const deliveryQueue = new Queue<DeliveryJobPayload>('delivery-queue', {
         connection: this.redisClient,
       })
 
