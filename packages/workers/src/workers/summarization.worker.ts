@@ -1,7 +1,12 @@
 import { Worker } from 'bullmq'
 import Groq from 'groq-sdk'
 import { db } from '@astrodigest/database'
-import { bullmqConnection, summarizationQueue, editorialQueue } from '../queues.js'
+import {
+  bullmqConnection,
+  defaultWorkerOptions,
+  summarizationQueue,
+  editorialQueue,
+} from '../queues.js'
 import { logger } from '../logger.js'
 import type { SummarizationJob, EditorialJob } from '../queues.js'
 
@@ -145,7 +150,7 @@ export const summarizationWorker = new Worker<SummarizationJob>(
       throw err
     }
   },
-  { connection: bullmqConnection },
+  { connection: bullmqConnection, ...defaultWorkerOptions },
 )
 
 summarizationWorker.on('failed', (job, err) => {

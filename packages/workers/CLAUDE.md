@@ -1,6 +1,6 @@
 # @astrodigest/workers
 
-BullMQ worker processes that consume jobs from Upstash Redis queues. Responsible for the four core pipeline stages: scoring (ranking ingested content by relevance), summarization (calling the Anthropic API to generate article summaries), assembly (composing the weekly digest from top-scored content), and delivery (sending push notifications via Expo). Hosted on Railway alongside the API.
+BullMQ worker processes that consume jobs from Redis queues (self-hosted Redis container, see root `docker-compose.yml`). Responsible for the four core pipeline stages: scoring (ranking ingested content by relevance), summarization (calling the Anthropic API to generate article summaries), assembly (composing the weekly digest from top-scored content), and delivery (sending push notifications via Expo). Hosted on Railway alongside the API.
 
 ## Conventions
 

@@ -1,6 +1,6 @@
 import { Worker } from 'bullmq'
 import { db } from '@astrodigest/database'
-import { bullmqConnection, deliveryQueue } from '../queues.js'
+import { bullmqConnection, defaultWorkerOptions, deliveryQueue } from '../queues.js'
 import { logger } from '../logger.js'
 import type { DeliveryJob } from '../queues.js'
 
@@ -115,7 +115,7 @@ export const deliveryWorker = new Worker<DeliveryJob>(
       throw err
     }
   },
-  { connection: bullmqConnection },
+  { connection: bullmqConnection, ...defaultWorkerOptions },
 )
 
 deliveryWorker.on('failed', (job, err) => {
