@@ -1,26 +1,12 @@
 import { Queue } from 'bullmq'
 import IORedis from 'ioredis'
 
-// BullMQ requires an ioredis TCP connection (rediss://).
-// This is separate from the @upstash/redis REST client in redis.ts.
-//
-// Prefer an explicit UPSTASH_REDIS_CONNECTION_URL (rediss://<host>:6379).
-// If absent, derive it from the REST URL + token (Upstash uses the same
-// hostname and token for both protocols).
 function resolveConnectionUrl(): string {
-  const explicit = process.env['UPSTASH_REDIS_CONNECTION_URL']
-  if (explicit) return explicit
-
-  const restUrl = process.env['UPSTASH_REDIS_URL']
-  const token = process.env['UPSTASH_REDIS_TOKEN']
-  if (restUrl && token) {
-    const host = restUrl.replace(/^https?:\/\//, '')
-    return `rediss://default:${token}@${host}:6379`
+  const url = process.env['REDIS_URL']
+  if (!url) {
+    throw new Error('Missing required environment variable: REDIS_URL')
   }
-
-  throw new Error(
-    'Missing Redis connection config. Set UPSTASH_REDIS_CONNECTION_URL or both UPSTASH_REDIS_URL and UPSTASH_REDIS_TOKEN.',
-  )
+  return url
 }
 
 const connectionUrl = resolveConnectionUrl()
@@ -28,7 +14,6 @@ const connectionUrl = resolveConnectionUrl()
 export const bullmqConnection = new IORedis(connectionUrl, {
   maxRetriesPerRequest: null, // required by BullMQ
   enableReadyCheck: false,
-  tls: {},
 })
 
 const defaultJobOptions = {
@@ -37,6 +22,15 @@ const defaultJobOptions = {
     type: 'exponential' as const,
     delay: 5000,
   },
+}
+
+// Local, same-host Redis — no need for BullMQ's default sub-5-second idle
+// polling. A weekly-batch pipeline doesn't need sub-minute latency, and the
+// default drainDelay/stalledInterval combo is what drove Upstash's
+// pay-per-command free tier to exhaustion in the old setup.
+export const defaultWorkerOptions = {
+  drainDelay: 30, // seconds between blocking-pop retries while idle
+  stalledInterval: 120_000, // ms between stalled-job checks
 }
 
 export const ingestionQueue = new Queue('ingestion-queue', {

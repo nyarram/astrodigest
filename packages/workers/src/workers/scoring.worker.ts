@@ -1,6 +1,11 @@
 import { Worker } from 'bullmq'
 import { db } from '@astrodigest/database'
-import { bullmqConnection, ingestionQueue, summarizationQueue } from '../queues.js'
+import {
+  bullmqConnection,
+  defaultWorkerOptions,
+  ingestionQueue,
+  summarizationQueue,
+} from '../queues.js'
 import { logger } from '../logger.js'
 import type { IngestionJob, SummarizationJob } from '../queues.js'
 
@@ -142,7 +147,7 @@ export const scoringWorker = new Worker<IngestionJob>(
       throw err
     }
   },
-  { connection: bullmqConnection },
+  { connection: bullmqConnection, ...defaultWorkerOptions },
 )
 
 scoringWorker.on('failed', (job, err) => {

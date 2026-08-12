@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { db } from '../lib/db.js'
-import { redis } from '../lib/redis.js'
+import { getJSON, setJSON } from '../lib/redis.js'
 
 // ---------------------------------------------------------------------------
 // Internal DB row type after join
@@ -292,7 +292,12 @@ export default async function digestRoutes(fastify: FastifyInstance): Promise<vo
     { schema: { response: digestDetailResponseSchema } },
     async (): Promise<DigestDetailResponse> => {
       try {
-        const cached = await redis.get<DigestDetailResponse>('digest:latest')
+        let cached: DigestDetailResponse | null = null
+        try {
+          cached = await getJSON<DigestDetailResponse>('digest:latest')
+        } catch (err) {
+          fastify.log.warn({ err }, 'Redis read failed for digest:latest, falling back to DB')
+        }
         if (cached) return cached
 
         const row = await db
@@ -312,7 +317,11 @@ export default async function digestRoutes(fastify: FastifyInstance): Promise<vo
           throw fastify.httpErrors.notFound('No digest available yet')
         }
 
-        await redis.set('digest:latest', detail, { ex: 3600 })
+        try {
+          await setJSON('digest:latest', detail, { ex: 3600 })
+        } catch (err) {
+          fastify.log.warn({ err }, 'Redis write failed for digest:latest')
+        }
 
         return detail
       } catch (err) {
@@ -379,7 +388,12 @@ export default async function digestRoutes(fastify: FastifyInstance): Promise<vo
       try {
         const { id } = request.params
 
-        const cached = await redis.get<DigestDetailResponse>(`digest:${id}`)
+        let cached: DigestDetailResponse | null = null
+        try {
+          cached = await getJSON<DigestDetailResponse>(`digest:${id}`)
+        } catch (err) {
+          request.log.warn({ err, id }, 'Redis read failed for digest, falling back to DB')
+        }
         if (cached) return cached
 
         const detail = await fetchDigestDetail(id)
@@ -387,7 +401,11 @@ export default async function digestRoutes(fastify: FastifyInstance): Promise<vo
           throw fastify.httpErrors.notFound('Digest not found')
         }
 
-        await redis.set(`digest:${id}`, detail, { ex: 86400 })
+        try {
+          await setJSON(`digest:${id}`, detail, { ex: 86400 })
+        } catch (err) {
+          request.log.warn({ err, id }, 'Redis write failed for digest')
+        }
 
         return detail
       } catch (err) {
