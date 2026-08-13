@@ -1,8 +1,14 @@
 import type { RawContentInsert } from '@astrodigest/shared'
 import { extractAllTags, extractTag } from '../utils/xml.js'
 
-const ARXIV_URL =
-  'https://export.arxiv.org/api/query?search_query=cat:astro-ph&sortBy=submittedDate&sortOrder=descending&max_results=20'
+// arXiv retired the flat "astro-ph" category into subcategories years ago.
+// The legacy umbrella query (cat:astro-ph) still matches but its search-index
+// ranking is stale/broken — it returns papers from 2008-2019 regardless of
+// sortBy/sortOrder. Querying the current subcategories directly returns
+// properly-sorted, current results.
+const ASTRO_PH_SUBCATEGORIES = ['CO', 'EP', 'GA', 'HE', 'IM', 'SR']
+const SEARCH_QUERY = ASTRO_PH_SUBCATEGORIES.map((sub) => `cat:astro-ph.${sub}`).join('+OR+')
+const ARXIV_URL = `https://export.arxiv.org/api/query?search_query=${SEARCH_QUERY}&sortBy=submittedDate&sortOrder=descending&max_results=20`
 
 function extractArxivId(idUrl: string): string {
   // e.g. "http://arxiv.org/abs/2403.12345v1" → "2403.12345"
