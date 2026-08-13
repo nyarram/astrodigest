@@ -50,5 +50,4 @@ notification to a React Native app.
 ## Environment Variables
 
 See .env.example in root for all required keys.
-Required: NEON_DATABASE_URL, UPSTASH_REDIS_URL, UPSTASH_REDIS_TOKEN,
-GROQ_API_KEY, NASA_API_KEY
+Required: NEON_DATABASE_URL, REDIS_URL, GROQ_API_KEY, NASA_API_KEY

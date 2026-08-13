@@ -7,7 +7,7 @@ import healthRoutes from './routes/health.js'
 import digestRoutes from './routes/digests.js'
 import userRoutes from './routes/users.js'
 
-const REQUIRED_ENV = ['NEON_DATABASE_URL', 'UPSTASH_REDIS_URL', 'UPSTASH_REDIS_TOKEN'] as const
+const REQUIRED_ENV = ['NEON_DATABASE_URL', 'REDIS_URL'] as const
 
 function validateEnv(): void {
   const missing = REQUIRED_ENV.filter((key) => !process.env[key])
