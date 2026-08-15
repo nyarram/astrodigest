@@ -1,6 +1,6 @@
 # @astrodigest/api
 
-Fastify REST API server that acts as the backend for the AstroDigest mobile app. It handles authentication via Clerk, serves digest and article endpoints to the mobile client, and enqueues jobs onto BullMQ queues for the workers package to process. Hosted on Railway. All routes are typed end-to-end using shared types from `@astrodigest/shared`, and all database access goes through the Kysely client exported from `@astrodigest/database`.
+Fastify REST API server that acts as the backend for the AstroDigest mobile and web apps. It handles authentication via Clerk, serves digest and article endpoints, and enqueues jobs onto BullMQ queues for the workers package to process. Hosted on the self-hosted VPS (Docker Compose) alongside workers. All routes are typed end-to-end using shared types from `@astrodigest/shared`, and all database access goes through the Kysely client exported from `@astrodigest/database`.
 
 ## Conventions
 

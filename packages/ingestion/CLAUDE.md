@@ -1,6 +1,6 @@
 # @astrodigest/ingestion
 
-Cloudflare Workers that run on a daily cron to fetch and normalise content from external astronomy sources: arXiv (papers), NASA (news and APOD), ESO (press releases), ALMA (announcements), and SpaceX (updates). Each source has its own fetcher that parses RSS feeds or REST APIs and writes normalised records into the database via `@astrodigest/database`. Runs entirely on Cloudflare's edge — no Railway dependency.
+Cloudflare Workers that run on a daily cron to fetch and normalise content from external astronomy sources: arXiv (papers), NASA (news and APOD), ESO (press releases), ALMA (announcements), NASASpaceflight, and SpaceX (updates). Each source has its own fetcher that parses RSS feeds or REST APIs and writes normalised records into the database via `@astrodigest/database`. Runs entirely on Cloudflare's edge — no dependency on the API/workers VPS.
 
 ## Conventions
 

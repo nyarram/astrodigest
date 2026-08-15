@@ -3,15 +3,17 @@
 ## What This Is
 
 Weekly astronomy digest app. An AI-powered pipeline ingests papers and news
-from arXiv, NASA APOD, ESO, ALMA, and NASASpaceflight, summarizes them with
-Groq (llama-3.3-70b-versatile), and delivers a curated weekly digest via push
-notification to a React Native app.
+from arXiv, NASA APOD, ESO, ALMA, NASASpaceflight, and SpaceX, summarizes them
+with Groq (llama-3.3-70b-versatile), and delivers a curated weekly digest via
+push notification to a React Native app and a Next.js web app.
 
 ## Monorepo Structure
 
+- apps/web → Next.js 15 frontend (Vercel), Clerk auth, TanStack Query
 - apps/mobile → React Native + Expo (Expo Router, Zustand, Clerk auth)
-- apps/api → Fastify + TypeScript REST API, hosted on Railway
-- packages/workers → BullMQ workers: scoring, summarization, assembly, delivery
+- apps/api → Fastify + TypeScript REST API
+- packages/workers → BullMQ workers: scoring, summarization, editorial (quality checks), delivery
+- packages/digest-assembly → assembles the weekly digest from top-scored content; runs on-demand via cron, not a BullMQ worker
 - packages/ingestion → Cloudflare Workers: RSS and API fetching from all sources
 - packages/database → Kysely query client, migrations, shared DB types
 - packages/shared → TypeScript types shared across all packages
@@ -20,13 +22,13 @@ notification to a React Native app.
 
 - Language: TypeScript strict mode throughout, no any types allowed
 - Database: Neon (Postgres) accessed via Kysely query builder
-- Queue: BullMQ backed by Upstash Redis
+- Queue: BullMQ backed by self-hosted Redis (Docker container on the VPS, see root docker-compose.yml)
 - API: Fastify (not Express)
 - Auth: Clerk
 - Mobile: React Native + Expo
 - AI: Groq API (llama-3.3-70b-versatile) for all summarization — free tier, weekly batch
 - Ingestion: Cloudflare Workers on a daily cron
-- Hosting: Railway for API and workers, Cloudflare Workers for ingestion
+- Hosting: Vercel (web), self-hosted VPS via Docker Compose (api, workers, digest-assembly), Cloudflare Workers (ingestion)
 
 ## Coding Conventions
 
@@ -42,10 +44,19 @@ notification to a React Native app.
 
 - npm run dev → start API and workers locally
 - npm run migrate --workspace=@astrodigest/database → run pending migrations against Neon
-- npm run migrate:rollback → rollback last migration
+- npm run migrate:rollback --workspace=@astrodigest/database → rollback last migration
 - npm run lint → ESLint across all packages via Turbo
 - npm run typecheck → TypeScript check across all packages via Turbo
-- npm test → run all tests
+- npm test --workspace=@astrodigest/digest-assembly → run its vitest suite (currently the only package with tests)
+
+## Deployment
+
+- apps/web deploys to Vercel automatically via its GitHub integration on every merge to main
+- api, workers, and digest-assembly deploy to the self-hosted VPS automatically via
+  .github/workflows/deploy-vps.yml on every merge to main (rsync + docker compose build/up)
+- digest-assembly itself is never run by the deploy workflow — it stays on-demand via
+  the deploy user's crontab on the VPS (Fridays 20:00 UTC), so a deploy only updates
+  the image it runs next
 
 ## Environment Variables
 
