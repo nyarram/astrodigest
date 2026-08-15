@@ -1,0 +1,54 @@
+name: Deploy to VPS
+
+# Deploys apps/api, packages/workers, and packages/digest-assembly to the
+# self-hosted VPS. The web app is deployed separately by Vercel's own
+# GitHub integration and is not handled here.
+#
+# The VPS checkout at /home/deploy/astrodigest is not a git repo — it's kept
+# in sync by rsync from this workflow. digest-assembly runs on-demand via
+# the deploy user's crontab (Fridays 20:00 UTC); rebuilding its image here
+# is what makes that cron job pick up the latest code on its next run.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: vps-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Sync repo to VPS
+        run: |
+          rsync -az \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='**/node_modules' \
+            --exclude='.env' \
+            --exclude='**/.turbo' \
+            --exclude='**/dist' \
+            --exclude='**/.next' \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            ./ "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/home/deploy/astrodigest/"
+
+      - name: Build and restart services
+        run: |
+          ssh -i ~/.ssh/deploy_key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" '
+            set -e
+            cd /home/deploy/astrodigest
+            docker compose build api workers digest-assembly
+            docker compose up -d --remove-orphans api workers
+            docker image prune -f
+          '
