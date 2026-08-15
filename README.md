@@ -15,22 +15,33 @@ AstroDigest delivers a weekly AI-curated digest of astronomy news, space discove
 │  arXiv ──┐                                                      │
 │  NASA  ──┼──► Fetch & normalise ──► Neon (raw_content table)   │
 │  ESO   ──┤                                                      │
-│  ALMA  ──┘                                                      │
+│  ALMA  ──┤                                                      │
+│  NASASpaceflight ┤                                              │
+│  SpaceX ─┘                                                      │
 └────────────────────────────┬────────────────────────────────────┘
                              │ rows inserted
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  Workers  (BullMQ + Upstash Redis — Railway)                    │
+│  Workers  (BullMQ + self-hosted Redis — VPS, Docker Compose)    │
 │                                                                 │
-│  ScoringWorker ──► score each item (relevance 0–1)             │
-│  SummaryWorker ──► summarise with Groq (llama-3.3-70b)         │
-│  AssemblyWorker ► assemble weekly digest (sections JSON)        │
-│  DeliveryWorker ► push notification to mobile app              │
+│  ScoringWorker       ──► score each item (relevance 0–1)       │
+│  SummarizationWorker ──► summarise with Groq (llama-3.3-70b)   │
+│  EditorialWorker     ──► flag low-quality/refusal summaries    │
+│  DeliveryWorker      ──► push notification to mobile app       │
 └────────────────────────────┬────────────────────────────────────┘
-                             │ REST
+                             │
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  API  (Fastify — Railway)                                       │
+│  digest-assembly  (one-shot script — VPS cron, Fri 20:00 UTC)   │
+│                                                                 │
+│  Picks big story / image of week / paper deep dive / quick     │
+│  hits from top-scored content, inserts one `digests` row,       │
+│  enqueues a delayed delivery job                                │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ rows inserted
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  API  (Fastify — VPS, Docker Compose)                            │
 │                                                                 │
 │  GET  /digests/latest          GET  /digests/:id               │
 │  GET  /digests?page&limit      PUT  /users/:id/preferences     │
@@ -44,6 +55,8 @@ AstroDigest delivers a weekly AI-curated digest of astronomy news, space discove
 └──────────────────────┘   └─────────────────────────┘
 ```
 
+`api`, `workers`, and `digest-assembly` deploy automatically to the VPS on every merge to `main` via `.github/workflows/deploy-vps.yml`. `web` deploys automatically to Vercel via its own GitHub integration.
+
 ---
 
 ## Monorepo Structure
@@ -53,23 +66,25 @@ astrodigest/
 ├── apps/
 │   ├── web/          # Next.js 15 web app (Vercel)
 │   ├── mobile/       # React Native + Expo app (iOS & Android)
-│   └── api/          # Fastify REST API (Railway)
+│   └── api/          # Fastify REST API (VPS, Docker Compose)
 └── packages/
-    ├── shared/       # Shared TypeScript types and utilities
-    ├── database/     # Kysely client, schema, and migrations (Neon)
-    ├── ingestion/    # Cloudflare Workers — RSS + API fetching
-    └── workers/      # BullMQ workers — scoring, summary, assembly, delivery
+    ├── shared/           # Shared TypeScript types and utilities
+    ├── database/         # Kysely client, schema, and migrations (Neon)
+    ├── ingestion/        # Cloudflare Workers — RSS + API fetching
+    ├── workers/          # BullMQ workers — scoring, summarisation, editorial, delivery
+    └── digest-assembly/  # One-shot weekly digest assembly, run via VPS cron
 ```
 
-| Package                  | Description                                                        |
-| ------------------------ | ------------------------------------------------------------------ |
-| `@astrodigest/web`       | Next.js 15 frontend with Clerk auth, TanStack Query, shadcn/ui     |
-| `@astrodigest/mobile`    | iOS and Android app built with React Native and Expo               |
-| `@astrodigest/api`       | Fastify HTTP server powering all app endpoints                     |
-| `@astrodigest/shared`    | Types, constants, and utilities shared across packages             |
-| `@astrodigest/database`  | Database schema, migrations, and Kysely query client               |
-| `@astrodigest/ingestion` | Fetches, parses, and normalises content from external sources      |
-| `@astrodigest/workers`   | BullMQ background jobs: scoring, summarisation, assembly, delivery |
+| Package                        | Description                                                         |
+| ------------------------------ | ------------------------------------------------------------------- |
+| `@astrodigest/web`             | Next.js 15 frontend with Clerk auth, TanStack Query, shadcn/ui      |
+| `@astrodigest/mobile`          | iOS and Android app built with React Native and Expo                |
+| `@astrodigest/api`             | Fastify HTTP server powering all app endpoints                      |
+| `@astrodigest/shared`          | Types, constants, and utilities shared across packages              |
+| `@astrodigest/database`        | Database schema, migrations, and Kysely query client                |
+| `@astrodigest/ingestion`       | Fetches, parses, and normalises content from external sources       |
+| `@astrodigest/workers`         | BullMQ background jobs: scoring, summarisation, editorial, delivery |
+| `@astrodigest/digest-assembly` | Assembles the weekly digest from top-scored content; runs via cron  |
 
 ---
 
@@ -141,15 +156,15 @@ apps/web/
    _(This tells Vercel where the Next.js app lives. `vercel.json` at the repo root handles the build command and output directory.)_
 3. Add the following **Environment Variables** in the Vercel dashboard:
 
-| Variable                              | Value                                                        |
-| ------------------------------------- | ------------------------------------------------------------ |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`   | Clerk dashboard → API Keys                                   |
-| `CLERK_SECRET_KEY`                    | Clerk dashboard → API Keys                                   |
-| `NEXT_PUBLIC_API_URL`                 | Railway API service URL (e.g. `https://api-xxx.railway.app`) |
-| `NEXT_PUBLIC_CLERK_SIGN_IN_URL`       | `/sign-in`                                                   |
-| `NEXT_PUBLIC_CLERK_SIGN_UP_URL`       | `/sign-up`                                                   |
-| `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL` | `/`                                                          |
-| `NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL` | `/`                                                          |
+| Variable                              | Value                                            |
+| ------------------------------------- | ------------------------------------------------ |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`   | Clerk dashboard → API Keys                       |
+| `CLERK_SECRET_KEY`                    | Clerk dashboard → API Keys                       |
+| `NEXT_PUBLIC_API_URL`                 | VPS API URL (e.g. `https://your-domain.example`) |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_URL`       | `/sign-in`                                       |
+| `NEXT_PUBLIC_CLERK_SIGN_UP_URL`       | `/sign-up`                                       |
+| `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL` | `/`                                              |
+| `NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL` | `/`                                              |
 
 See `apps/web/.env.production.example` for the complete list.
 
@@ -157,23 +172,23 @@ See `apps/web/.env.production.example` for the complete list.
 
 ## Tech Stack
 
-| Layer      | Technology                                 |
-| ---------- | ------------------------------------------ |
-| Web        | Next.js 15, React 18, Tailwind CSS, shadcn |
-| Mobile     | React Native, Expo                         |
-| API        | Fastify, Node.js                           |
-| Workers    | BullMQ, Upstash Redis                      |
-| Ingestion  | Cloudflare Workers                         |
-| Database   | Neon (Postgres), Kysely                    |
-| AI         | Groq API (llama-3.3-70b-versatile)         |
-| Auth       | Clerk                                      |
-| Language   | TypeScript (strict)                        |
-| Monorepo   | Turborepo, npm Workspaces                  |
-| Linting    | ESLint, typescript-eslint                  |
-| Formatting | Prettier                                   |
-| Git Hooks  | Husky, lint-staged                         |
-| CI         | GitHub Actions                             |
-| Hosting    | Vercel (web), Railway (API + workers)      |
+| Layer      | Technology                                                                       |
+| ---------- | -------------------------------------------------------------------------------- |
+| Web        | Next.js 15, React 18, Tailwind CSS, shadcn                                       |
+| Mobile     | React Native, Expo                                                               |
+| API        | Fastify, Node.js                                                                 |
+| Workers    | BullMQ, self-hosted Redis (Docker)                                               |
+| Ingestion  | Cloudflare Workers                                                               |
+| Database   | Neon (Postgres), Kysely                                                          |
+| AI         | Groq API (llama-3.3-70b-versatile)                                               |
+| Auth       | Clerk                                                                            |
+| Language   | TypeScript (strict)                                                              |
+| Monorepo   | Turborepo, npm Workspaces                                                        |
+| Linting    | ESLint, typescript-eslint                                                        |
+| Formatting | Prettier                                                                         |
+| Git Hooks  | Husky, lint-staged                                                               |
+| CI/CD      | GitHub Actions (typecheck/lint + auto-deploy to VPS on merge)                    |
+| Hosting    | Vercel (web), self-hosted VPS via Docker Compose (API, workers, digest-assembly) |
 
 ---
 
