@@ -9,6 +9,7 @@ export interface DigestSections {
   quickHits: ProcessedContent[]
   /** Null when no nasa/eso/alma image candidate exists for the week. */
   imageOfWeek: ProcessedContent | null
-  paperDeepDive: ProcessedContent
+  /** Null when no arxiv candidate exists for the week. */
+  paperDeepDive: ProcessedContent | null
   spaceNews?: ProcessedContent[]
 }

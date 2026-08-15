@@ -1533,6 +1533,7 @@ export function SolarDigest({ digest }: SolarDigestProps): JSX.Element {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
+    timeZone: 'UTC',
   })
 
   const handleSelect = useCallback((body: BodyDef): void => {

@@ -117,12 +117,14 @@ export class ContentSelector {
       this.logger.warn('No image-of-week candidate found for this week')
     }
 
-    // 3. Paper deep dive — highest scored arxiv item, not already used
-    const paperDeepDive = candidates.find((c) => !usedIds.has(c.id) && c.source === 'arxiv')
-    if (paperDeepDive === undefined) {
-      throw new Error('No arxiv content available for paper deep dive this week')
+    // 3. Paper deep dive — highest scored arxiv item, not already used.
+    //    Null when no candidate exists (soft failure, same as imageOfWeek).
+    const paperDeepDive = candidates.find((c) => !usedIds.has(c.id) && c.source === 'arxiv') ?? null
+    if (paperDeepDive !== null) {
+      usedIds.add(paperDeepDive.id)
+    } else {
+      this.logger.warn('No arxiv candidate found for paper deep dive this week')
     }
-    usedIds.add(paperDeepDive.id)
 
     // 4. Quick hits — up to 3 items, sorted by source-preference rank then
     //    score, from the remaining candidates
@@ -165,7 +167,7 @@ export class ContentSelector {
       {
         bigStoryId: bigStory.id,
         imageOfWeekId: imageOfWeek?.id ?? null,
-        paperDeepDiveId: paperDeepDive.id,
+        paperDeepDiveId: paperDeepDive?.id ?? null,
         quickHitCount: quickHits.length,
         spaceNewsCount: spaceNews.length,
         totalCandidates: candidates.length,
@@ -176,7 +178,7 @@ export class ContentSelector {
     return {
       bigStory: stripJoinColumns(bigStory),
       imageOfWeek: imageOfWeek !== null ? stripJoinColumns(imageOfWeek) : null,
-      paperDeepDive: stripJoinColumns(paperDeepDive),
+      paperDeepDive: paperDeepDive !== null ? stripJoinColumns(paperDeepDive) : null,
       quickHits: quickHits.map(stripJoinColumns),
       ...(spaceNews.length > 0 ? { spaceNews: spaceNews.map(stripJoinColumns) } : {}),
     }
