@@ -4,7 +4,7 @@ const PROMPT_VERSIONS = [
   {
     name: 'quick_hit',
     version: 1,
-    model: 'llama-3.3-70b-versatile',
+    model: 'openai/gpt-oss-120b',
     active: true,
     prompt_template: `You are an astronomy communicator writing for curious non-specialist adults who love space but don't have PhDs.
 
@@ -24,7 +24,7 @@ Abstract: {{abstract}}`,
   {
     name: 'big_story',
     version: 1,
-    model: 'llama-3.3-70b-versatile',
+    model: 'openai/gpt-oss-120b',
     active: true,
     prompt_template: `You are an astronomy communicator writing the lead story for a weekly digest read by informed enthusiasts.
 

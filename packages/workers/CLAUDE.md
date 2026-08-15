@@ -7,5 +7,5 @@ BullMQ worker processes that consume jobs from Redis queues (self-hosted Redis c
 - Each worker is a separate file under `src/workers/` and registers exactly one BullMQ `Worker`
 - Every job processor must be wrapped in try/catch — call `job.moveToFailed()` on error after logging with Pino
 - Never access the database with raw SQL — use the Kysely client from `@astrodigest/database`
-- Use the `claude-haiku-4-5`/`claude-sonnet-4-6` model names as internal aliases — both map to Groq's `llama-3.3-70b-versatile` via `toGroqModel()`; `claude-haiku-4-5` selects the per-article summary prompt, `claude-sonnet-4-6` selects the higher-scored (big-story-style) prompt
+- Use the `claude-haiku-4-5`/`claude-sonnet-4-6` model names as internal aliases — both map to Groq's `openai/gpt-oss-120b` via `toGroqModel()`; `claude-haiku-4-5` selects the per-article summary prompt, `claude-sonnet-4-6` selects the higher-scored (big-story-style) prompt
 - All Groq API calls must have explicit `max_tokens` set

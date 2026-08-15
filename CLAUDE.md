@@ -4,7 +4,7 @@
 
 Weekly astronomy digest app. An AI-powered pipeline ingests papers and news
 from arXiv, NASA APOD, ESO, ALMA, NASASpaceflight, and SpaceX, summarizes them
-with Groq (llama-3.3-70b-versatile), and delivers a curated weekly digest via
+with Groq (openai/gpt-oss-120b), and delivers a curated weekly digest via
 push notification to a React Native app and a Next.js web app.
 
 ## Monorepo Structure
@@ -26,7 +26,7 @@ push notification to a React Native app and a Next.js web app.
 - API: Fastify (not Express)
 - Auth: Clerk
 - Mobile: React Native + Expo
-- AI: Groq API (llama-3.3-70b-versatile) for all summarization — free tier, weekly batch
+- AI: Groq API (openai/gpt-oss-120b) for all summarization — free tier, weekly batch
 - Ingestion: Cloudflare Workers on a daily cron
 - Hosting: Vercel (web), self-hosted VPS via Docker Compose (api, workers, digest-assembly), Cloudflare Workers (ingestion)
 
