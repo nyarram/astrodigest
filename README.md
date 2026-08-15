@@ -25,7 +25,7 @@ AstroDigest delivers a weekly AI-curated digest of astronomy news, space discove
 │  Workers  (BullMQ + self-hosted Redis — VPS, Docker Compose)    │
 │                                                                 │
 │  ScoringWorker       ──► score each item (relevance 0–1)       │
-│  SummarizationWorker ──► summarise with Groq (llama-3.3-70b)   │
+│  SummarizationWorker ──► summarise with Groq (gpt-oss-120b)    │
 │  EditorialWorker     ──► flag low-quality/refusal summaries    │
 │  DeliveryWorker      ──► push notification to mobile app       │
 └────────────────────────────┬────────────────────────────────────┘
@@ -180,7 +180,7 @@ See `apps/web/.env.production.example` for the complete list.
 | Workers    | BullMQ, self-hosted Redis (Docker)                                               |
 | Ingestion  | Cloudflare Workers                                                               |
 | Database   | Neon (Postgres), Kysely                                                          |
-| AI         | Groq API (llama-3.3-70b-versatile)                                               |
+| AI         | Groq API (openai/gpt-oss-120b)                                                   |
 | Auth       | Clerk                                                                            |
 | Language   | TypeScript (strict)                                                              |
 | Monorepo   | Turborepo, npm Workspaces                                                        |

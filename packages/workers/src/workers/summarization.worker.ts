@@ -17,8 +17,8 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 // ---------------------------------------------------------------------------
 
 const GROQ_MODEL_MAP: Record<string, string> = {
-  'claude-haiku-4-5-20251001': 'llama-3.3-70b-versatile',
-  'claude-sonnet-4-6': 'llama-3.3-70b-versatile',
+  'claude-haiku-4-5-20251001': 'openai/gpt-oss-120b',
+  'claude-sonnet-4-6': 'openai/gpt-oss-120b',
 }
 
 function toGroqModel(model: string): string {
