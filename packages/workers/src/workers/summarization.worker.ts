@@ -25,6 +25,14 @@ function toGroqModel(model: string): string {
   return GROQ_MODEL_MAP[model] ?? model
 }
 
+/**
+ * Defensive strip of any `<think>…</think>` reasoning block that leaks into
+ * the visible content (e.g. if a model ignores `reasoning_format: 'hidden'`).
+ */
+function stripReasoning(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, '')
+}
+
 // ---------------------------------------------------------------------------
 // Prompt name by model
 // ---------------------------------------------------------------------------
@@ -84,14 +92,22 @@ export const summarizationWorker = new Worker<SummarizationJob>(
       const prompt = renderPrompt(promptVersion.prompt_template, job.data)
 
       // 3. Call Groq API
+      //    openai/gpt-oss-120b is a reasoning model: its chain-of-thought is
+      //    billed against the completion-token budget. `reasoning_format:
+      //    'hidden'` keeps the reasoning out of `message.content`, and a
+      //    higher `max_completion_tokens` leaves room for the visible answer
+      //    after the model finishes thinking — otherwise `content` comes back
+      //    empty with finish_reason 'length' and every job fails.
       const groqModel = toGroqModel(model)
       const completion = await groq.chat.completions.create({
         model: groqModel,
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 1000,
+        max_completion_tokens: 4000,
+        reasoning_effort: 'low',
+        reasoning_format: 'hidden',
       })
 
-      const summaryText = completion.choices[0]?.message.content ?? ''
+      const summaryText = stripReasoning(completion.choices[0]?.message.content ?? '').trim()
 
       if (!summaryText) {
         throw new Error(`Groq returned no text for rawContentId=${rawContentId}`)
