@@ -4,6 +4,29 @@ import { redisClient } from '../lib/redis.js'
 
 const CHECK_TIMEOUT_MS = 2000
 
+// The DB probe hits Neon, which resets its autosuspend timer. An aggressive
+// external monitor polling /health would keep the Free-plan compute awake
+// 24/7, so cache the probe result and only re-run it once per minute.
+const DB_CHECK_TTL_MS = 60_000
+
+let dbCheck: { ok: boolean; at: number } | null = null
+
+async function checkDb(): Promise<boolean> {
+  if (dbCheck !== null && Date.now() - dbCheck.at < DB_CHECK_TTL_MS) {
+    return dbCheck.ok
+  }
+
+  let ok = true
+  try {
+    await withTimeout(db.selectFrom('digests').select('id').limit(1).execute(), CHECK_TIMEOUT_MS)
+  } catch {
+    ok = false
+  }
+
+  dbCheck = { ok, at: Date.now() }
+  return ok
+}
+
 async function withTimeout(promise: Promise<unknown>, ms: number): Promise<void> {
   let timer: NodeJS.Timeout
   const timeout = new Promise<never>((_, reject) => {
@@ -59,14 +82,9 @@ export default async function healthRoutes(fastify: FastifyInstance): Promise<vo
     async (request, reply) => {
       const checks = { db: 'ok', redis: 'ok' }
 
-      try {
-        await withTimeout(
-          db.selectFrom('digests').select('id').limit(1).execute(),
-          CHECK_TIMEOUT_MS,
-        )
-      } catch (err) {
+      if (!(await checkDb())) {
         checks.db = 'error'
-        request.log.error({ err }, '[health] DB check failed')
+        request.log.error('[health] DB check failed')
       }
 
       try {
