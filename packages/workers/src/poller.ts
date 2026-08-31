@@ -3,7 +3,29 @@ import { ingestionQueue } from './queues.js'
 import { logger } from './logger.js'
 import type { IngestionJob } from './queues.js'
 
-const POLL_INTERVAL_MS = 5 * 60 * 1000
+// Content is ingested by a once-daily Cloudflare cron and the digest is
+// weekly, so the pipeline has no need for sub-hour latency. A short interval
+// here is actively harmful: every poll issues a query that resets Neon's
+// autosuspend timer, and a 5-minute poll kept the Free-plan compute awake
+// 24/7, exhausting the monthly compute-hour allowance. Default to hourly and
+// allow an override for local dev (`RAW_CONTENT_POLL_INTERVAL_MS`).
+const DEFAULT_POLL_INTERVAL_MS = 60 * 60 * 1000
+
+function resolvePollIntervalMs(): number {
+  const raw = process.env['RAW_CONTENT_POLL_INTERVAL_MS']
+  if (raw === undefined || raw === '') return DEFAULT_POLL_INTERVAL_MS
+
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    logger.warn(
+      { value: raw },
+      '[poller] invalid RAW_CONTENT_POLL_INTERVAL_MS, falling back to default',
+    )
+    return DEFAULT_POLL_INTERVAL_MS
+  }
+  return parsed
+}
+
 const BATCH_SIZE = 50
 
 // Bridges Cloudflare ingestion (writes raw_content only, per its own convention)
@@ -31,8 +53,8 @@ async function pollOnce(): Promise<void> {
       }
       await ingestionQueue.add('score', payload)
 
-      // Mark queued immediately so the next poll (5 min later) doesn't
-      // re-enqueue the same row while scoring is still in flight.
+      // Mark queued immediately so the next poll doesn't re-enqueue the
+      // same row while scoring is still in flight.
       await db
         .updateTable('raw_content')
         .set({ status: 'queued' })
@@ -45,11 +67,12 @@ async function pollOnce(): Promise<void> {
 }
 
 export function startRawContentPoller(): NodeJS.Timeout {
-  logger.info({ intervalMs: POLL_INTERVAL_MS }, '[poller] starting raw_content poller')
+  const intervalMs = resolvePollIntervalMs()
+  logger.info({ intervalMs }, '[poller] starting raw_content poller')
 
   pollOnce().catch((err: unknown) => logger.error({ err }, '[poller] initial poll failed'))
 
   return setInterval(() => {
     pollOnce().catch((err: unknown) => logger.error({ err }, '[poller] poll failed'))
-  }, POLL_INTERVAL_MS)
+  }, intervalMs)
 }

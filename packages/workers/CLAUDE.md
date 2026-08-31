@@ -9,3 +9,4 @@ BullMQ worker processes that consume jobs from Redis queues (self-hosted Redis c
 - Never access the database with raw SQL — use the Kysely client from `@astrodigest/database`
 - Use the `claude-haiku-4-5`/`claude-sonnet-4-6` model names as internal aliases — both map to Groq's `openai/gpt-oss-120b` via `toGroqModel()`; `claude-haiku-4-5` selects the per-article summary prompt, `claude-sonnet-4-6` selects the higher-scored (big-story-style) prompt
 - All Groq API calls must have explicit `max_tokens` set
+- The `raw_content` poller (`poller.ts`) runs hourly by default. Do not shorten it in production: every poll queries Neon and resets its autosuspend timer, and a short interval keeps the Free-plan compute awake around the clock, exhausting the monthly compute-hour allowance. Use `RAW_CONTENT_POLL_INTERVAL_MS` for a faster local loop. Neon's own autosuspend should also be set to 60s in the console.

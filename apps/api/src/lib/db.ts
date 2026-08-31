@@ -12,7 +12,13 @@ if (!connectionString) {
   throw new Error('Missing required environment variable: NEON_DATABASE_URL')
 }
 
-const pool = new Pool({ connectionString })
+// Short idle timeout so Neon's compute can autosuspend between requests
+// instead of being held awake by a pooled idle connection.
+const pool = new Pool({
+  connectionString,
+  max: 5,
+  idleTimeoutMillis: 10_000,
+})
 
 export const db = new Kysely<Database>({
   dialect: new PostgresDialect({ pool }),
