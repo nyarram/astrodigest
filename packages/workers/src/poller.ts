@@ -6,9 +6,10 @@ import type { IngestionJob } from './queues.js'
 // Content is ingested by a once-daily Cloudflare cron and the digest is
 // weekly, so the pipeline has no need for sub-hour latency. A short interval
 // here is actively harmful: every poll issues a query that resets Neon's
-// autosuspend timer, and a 5-minute poll kept the Free-plan compute awake
-// 24/7, exhausting the monthly compute-hour allowance. Default to hourly and
-// allow an override for local dev (`RAW_CONTENT_POLL_INTERVAL_MS`).
+// scale-to-zero timer (fixed at 5 min on the Free plan, not adjustable), and
+// a 5-minute poll kept the compute awake 24/7, exhausting the monthly
+// compute-hour allowance. An hourly poll leaves ~55 min for the compute to
+// suspend. Override for local dev via `RAW_CONTENT_POLL_INTERVAL_MS`.
 const DEFAULT_POLL_INTERVAL_MS = 60 * 60 * 1000
 
 function resolvePollIntervalMs(): number {

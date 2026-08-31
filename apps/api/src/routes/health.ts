@@ -4,10 +4,11 @@ import { redisClient } from '../lib/redis.js'
 
 const CHECK_TIMEOUT_MS = 2000
 
-// The DB probe hits Neon, which resets its autosuspend timer. An aggressive
-// external monitor polling /health would keep the Free-plan compute awake
-// 24/7, so cache the probe result and only re-run it once per minute.
-const DB_CHECK_TTL_MS = 60_000
+// The DB probe hits Neon, which resets its scale-to-zero timer. The Free
+// plan's timer is fixed at 5 minutes and cannot be shortened, so to let the
+// compute actually suspend, the probe must run less often than that regardless
+// of how aggressively an external monitor polls /health. Cache it for 10 min.
+const DB_CHECK_TTL_MS = 10 * 60_000
 
 let dbCheck: { ok: boolean; at: number } | null = null
 
