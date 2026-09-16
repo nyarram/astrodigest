@@ -12,7 +12,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-    restart: on-failure:3
+    restart: unless-stopped
     env_file: .env
     environment:
       - PORT=3000
@@ -26,7 +26,7 @@ services:
     build:
       context: .
       dockerfile: packages/workers/Dockerfile
-    restart: on-failure:3
+    restart: unless-stopped
     env_file: .env
     environment:
       - NODE_ENV=production
