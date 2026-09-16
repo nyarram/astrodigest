@@ -1,6 +1,6 @@
 # AstroDigest
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-astrodigest.vercel.app-6366f1?style=flat-square&logo=vercel)](https://astrodigest.vercel.app)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-astrodigest--web.vercel.app-6366f1?style=flat-square&logo=vercel)](https://astrodigest-web.vercel.app)
 
 AstroDigest delivers a weekly AI-curated digest of astronomy news, space discoveries, and research papers directly to your phone and browser. It aggregates content from NASA, ESO, ALMA, arXiv, and more, scores and summarises each story with an LLM, and surfaces the most relevant content for each user.
 
